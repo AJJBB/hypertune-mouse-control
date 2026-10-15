@@ -1,0 +1,32 @@
+{
+  "name": "hypertune-mouse-control",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Browser-based control panel for configuring gaming mice (DPI, polling rate, lift-off, buttons, lighting, profiles) across many brands.",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AJJBB/hypertune-mouse-control.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AJJBB/hypertune-mouse-control/issues"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "size": "node build/check-bundle-size.ts",
+    "check": "npm run build && npm test",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openmouse/protocol": "file:../mouse-protocol-source",
+    "lucide-react": "^1.43.0",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}

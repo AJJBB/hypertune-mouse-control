@@ -1,0 +1,49 @@
+{
+  "name": "hypertune-desktop",
+  "productName": "Hypertune Mouse Control",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Desktop app for configuring supported gaming mice.",
+  "license": "AGPL-3.0-or-later",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:packaged": "node copy-web.js && electron .",
+    "build:web": "cd ../app && npm run build",
+    "copy:web": "node copy-web.js",
+    "dist": "npm run build:web && npm run copy:web && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "gg.hypertune.mousecontrol",
+    "productName": "Hypertune Mouse Control",
+    "directories": {
+      "output": "dist-installer"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icon.ico",
+      "web/**/*",
+      "node_modules/node-hid/**/*",
+      "node_modules/node-addon-api/**/*",
+      "node_modules/pkg-prebuilds/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/node-hid/**/*.node"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    }
+  },
+  "dependencies": {
+    "node-hid": "^3.4.0"
+  },
+  "allowScripts": {
+    "node-hid@3.4.0": true
+  }
+}

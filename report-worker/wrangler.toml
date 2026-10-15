@@ -1,0 +1,11 @@
+name = "hypertune-report"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Optional: override the target repo without editing worker.js.
+# Must be a PRIVATE repo — report payloads can contain user PII.
+# [vars]
+# REPO = "AJJBB/hypertune-reports"
+#
+# Secrets are NOT set here — add them with `wrangler secret put` (see README.md):
+#   GITHUB_TOKEN, APP_SECRET

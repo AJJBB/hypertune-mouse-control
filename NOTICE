@@ -1,0 +1,29 @@
+Hypertune Mouse Control
+Copyright (C) 2026 Hypertune
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. The full license text is in the LICENSE file.
+
+================================================================================
+Built on OpenMouse
+================================================================================
+
+This product includes and is a derivative work of the OpenMouse protocol
+library ("@openmouse/protocol"), Copyright (C) the OpenMouse Project, licensed
+under the GNU Affero General Public License, version 3.0 or later.
+
+    Upstream: https://github.com/OpenMouse-Project/mouse-protocol
+
+The vendored copy under mouse-protocol-source/ has been modified by Hypertune
+in 2026 (device support synced from upstream plus local fixes); those
+modifications are also licensed under the AGPL-3.0-or-later.
+
+As required by the GNU AGPL (including section 13, Remote Network Interaction),
+the complete Corresponding Source for this network-served application is made
+available to all users at:
+
+    https://github.com/AJJBB/hypertune-mouse-control
+
+The application also surfaces this notice and source link to users in its UI.

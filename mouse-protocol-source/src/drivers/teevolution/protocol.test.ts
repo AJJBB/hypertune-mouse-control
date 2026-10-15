@@ -1,0 +1,282 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  TEEVOLUTION_FLASH,
+  TEEVOLUTION_KEY_CLASS,
+  TEEVOLUTION_PROFILE_COUNT,
+  TEEVOLUTION_REPORT_ID,
+  teevolutionProfileForCid,
+  teevolutionBuildOnlinePayload,
+  teevolutionBuildReadPayload,
+  teevolutionBuildSetCurrentProfile,
+  teevolutionBuildSimplePayload,
+  teevolutionBuildWriteScalarPayload,
+  teevolutionDecodeButtonMappings,
+  teevolutionDecodeCurrentProfile,
+  teevolutionDecodeDpiLightBrightness,
+  teevolutionDecodeDpiLightMode,
+  teevolutionDecodeDpi,
+  teevolutionDecodeFirmwareVersion,
+  teevolutionDecodeKeyFunction,
+  teevolutionDecodeLiftOff,
+  teevolutionDecodePollingRate,
+  teevolutionDpiOptions,
+  teevolutionEncodeDpiLightBrightness,
+  teevolutionEncodeDpi,
+  teevolutionEncodeKeyFunction,
+  teevolutionEncodeLiftOff,
+  teevolutionEncodePollingRate,
+  teevolutionEncodeSensorMode,
+  teevolutionPacketChecksumIsValid,
+  teevolutionParseBattery,
+  teevolutionParseReadResponse,
+  teevolutionSensorModeUi,
+  teevolutionFindButtonAction,
+  teevolutionKeyFunctionAddress,
+  teevolutionKeyFunctionLabel,
+  teevolutionKeyTableHasLeftClick,
+  teevolutionLcdChecksum,
+  teevolutionBuildLcdTimePacket,
+  TEEVOLUTION_LCD_REPORT_ID,
+  TEEVOLUTION_LCD_PACKET_LENGTH,
+} from "@openmouse/protocol/teevolution";
+
+test("host-control and battery commands match Compx report-8 checksums", () => {
+  // Arrange — same framing Teevolink uses on report ID 0x08
+  const requests = [
+    teevolutionBuildOnlinePayload(true),
+    teevolutionBuildSimplePayload(0x04),
+    teevolutionBuildReadPayload(0x00a0, 10),
+  ];
+
+  // Act / Assert
+  assert.deepEqual([...requests[0]!], [0x03, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x49]);
+  assert.deepEqual([...requests[1]!], [0x04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x49]);
+  assert.deepEqual([...requests[2]!], [0x08, 0, 0, 0xa0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x9b]);
+  assert.equal(TEEVOLUTION_REPORT_ID, 0x08);
+});
+
+test("receiver responses pass checksum validation", () => {
+  // Arrange — battery response shape from Compx HUB (percent + charging flag)
+  const response = new Uint8Array([0x04, 0, 0, 0, 2, 0x64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  response[15] = (0x55 - TEEVOLUTION_REPORT_ID - response.slice(0, 15).reduce((sum, byte) => sum + byte, 0)) & 0xff;
+
+  // Act / Assert
+  assert.equal(teevolutionPacketChecksumIsValid(response), true);
+  response[5] ^= 1;
+  assert.equal(teevolutionPacketChecksumIsValid(response), false);
+});
+
+test("battery responses decode percent and charging", () => {
+  // Arrange
+  const response = new Uint8Array([0x04, 0, 0, 0, 2, 0x5f, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  response[15] = (0x55 - TEEVOLUTION_REPORT_ID - response.slice(0, 15).reduce((sum, byte) => sum + byte, 0)) & 0xff;
+
+  // Act
+  const battery = teevolutionParseBattery(response);
+
+  // Assert
+  assert.deepEqual(battery, { percent: 95, charging: true });
+});
+
+test("flash reads reject corrupt or mismatched responses", () => {
+  // Arrange
+  const response = new Uint8Array([0x08, 0, 0, 0x0a, 4, 1, 0x54, 0x1f, 0x1f, 0, 0, 0, 0, 0, 0, 0]);
+  response[15] = (0x55 - TEEVOLUTION_REPORT_ID - response.slice(0, 15).reduce((sum, byte) => sum + byte, 0)) & 0xff;
+
+  // Act / Assert
+  assert.deepEqual([...teevolutionParseReadResponse(response, 0x000a, 4)!], [1, 0x54, 0x1f, 0x1f]);
+  assert.equal(teevolutionParseReadResponse(response, 0x000b, 4), null);
+  response[15] ^= 1;
+  assert.equal(teevolutionParseReadResponse(response, 0x000a, 4), null);
+});
+
+test("DPI and polling rate codecs round-trip Terra Pro UI values", () => {
+  // Arrange — includes the Teevolink high-DPI range above 30,100
+  const dpis = [50, 1600, 30000, 30100, 42000];
+  const rates = [125, 250, 500, 1000, 2000, 4000, 8000];
+
+  // Act / Assert
+  for (const dpi of dpis) assert.equal(teevolutionDecodeDpi(teevolutionEncodeDpi(dpi)), dpi);
+  for (const rate of rates) {
+    assert.equal(teevolutionDecodePollingRate(teevolutionEncodePollingRate(rate)), rate);
+  }
+});
+
+test("high-DPI packing uses dpiEx 0x11 like Teevolink", () => {
+  // Arrange / Act
+  const stage = teevolutionEncodeDpi(30100);
+
+  // Assert — low nibble of flags carries the extend bits used on decode
+  assert.equal(stage[2]! & 0x03, 0x01);
+  assert.equal(stage[3], (0x55 - stage[0]! - stage[1]! - stage[2]!) & 0xff);
+  assert.equal(teevolutionDecodeDpi(stage), 30100);
+});
+
+test("scalar writes include the value parity byte", () => {
+  // Arrange / Act
+  const payload = teevolutionBuildWriteScalarPayload(TEEVOLUTION_FLASH.motionSync, 1);
+
+  // Assert
+  assert.deepEqual([...payload.slice(0, 7)], [0x07, 0, 0, 0xab, 2, 1, 0x54]);
+  assert.equal(teevolutionPacketChecksumIsValid(payload), true);
+});
+
+test("lift-off codes match Teevolink Low/Medium/High mapping", () => {
+  assert.equal(teevolutionEncodeLiftOff("Low"), 3);
+  assert.equal(teevolutionEncodeLiftOff("Medium"), 1);
+  assert.equal(teevolutionEncodeLiftOff("High"), 2);
+  assert.equal(teevolutionDecodeLiftOff(3), "Low");
+  assert.equal(teevolutionDecodeLiftOff(1), "Medium");
+  assert.equal(teevolutionDecodeLiftOff(2), "High");
+  assert.equal(teevolutionDecodeLiftOff(0), null);
+});
+
+test("firmware version strings match Teevolink formatting", () => {
+  const response = new Uint8Array([0x12, 0, 0, 0, 2, 1, 0x2a, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.equal(teevolutionDecodeFirmwareVersion("Mouse", response), "Mouse v1.2a");
+});
+
+test("DPI option list covers 50–30k then 100-step high range", () => {
+  const profile = teevolutionProfileForCid(14);
+  if (!profile) throw new Error("Terra Pro capability profile is missing.");
+  const options = teevolutionDpiOptions(profile);
+  assert.equal(options[0], 50);
+  assert.ok(options.includes(30000));
+  assert.ok(options.includes(30100));
+  assert.equal(options.at(-1), 42000);
+  assert.equal(options.filter((dpi) => dpi > 30000 && dpi % 100 !== 0).length, 0);
+});
+
+test("Terra Pro capabilities are selected by reported CID", () => {
+  const profile = teevolutionProfileForCid(14);
+  if (!profile) throw new Error("Terra Pro capability profile is missing.");
+  assert.equal(profile.name, "Terra Pro");
+  assert.equal(profile.protocol, "compX-terra-v1");
+  assert.equal(profile.dpiStageCount, 4);
+  assert.equal(TEEVOLUTION_FLASH.maxDpiStage, 2);
+  assert.equal(TEEVOLUTION_FLASH.currentDpi, 4);
+  assert.equal(TEEVOLUTION_FLASH.dpiValues, 12);
+  assert.equal(TEEVOLUTION_FLASH.keyFunction, 96);
+  assert.deepEqual(profile.pollingRates, [125, 250, 500, 1000, 2000, 4000, 8000]);
+  assert.deepEqual(profile.liftOffDistances, ["Low", "Medium", "High"]);
+  assert.deepEqual(profile.sensorModes, ["Eco", "High"]);
+  assert.equal(teevolutionProfileForCid(0xff), null);
+});
+
+test("DPI light brightness matches Teevolink's nonlinear 1–10 table", () => {
+  const stored = [0x10, 0x1e, 0x3c, 0x5a, 0x80, 0x96, 0xb4, 0xd2, 0xe6, 0xff];
+  for (let level = 1; level <= 10; level += 1) {
+    assert.equal(teevolutionEncodeDpiLightBrightness(level), stored[level - 1]);
+    assert.equal(teevolutionDecodeDpiLightBrightness(stored[level - 1]!), level);
+  }
+  assert.equal(teevolutionDecodeDpiLightBrightness(0), 5);
+  assert.throws(() => teevolutionEncodeDpiLightBrightness(0), /1 to 10/);
+});
+
+test("DPI light state exposes Off, Steady, and Breathing", () => {
+  assert.equal(teevolutionDecodeDpiLightMode(1, 0), 0);
+  assert.equal(teevolutionDecodeDpiLightMode(1, 1), 1);
+  assert.equal(teevolutionDecodeDpiLightMode(2, 1), 2);
+  assert.equal(teevolutionDecodeDpiLightMode(99, 1), 1);
+});
+
+test("sensor mode UI matches Teevolink Eco/High/Ultra rules", () => {
+  assert.deepEqual(teevolutionSensorModeUi({
+    storedMode: 0,
+    pollingRateHz: 1000,
+    connection: "Wireless",
+  }), { mode: "Eco", editable: true, storedValue: 0 });
+  assert.deepEqual(teevolutionSensorModeUi({
+    storedMode: 1,
+    pollingRateHz: 500,
+    connection: "Wireless",
+  }), { mode: "High", editable: true, storedValue: 1 });
+  assert.deepEqual(teevolutionSensorModeUi({
+    storedMode: 0,
+    pollingRateHz: 4000,
+    connection: "Wireless",
+  }), { mode: "Ultra", editable: false, storedValue: 0 });
+  assert.deepEqual(teevolutionSensorModeUi({
+    storedMode: 1,
+    pollingRateHz: 1000,
+    connection: "Wired",
+  }), { mode: "Ultra", editable: false, storedValue: 1 });
+});
+
+test("sensor mode encoding accepts Eco and High only", () => {
+  assert.equal(teevolutionEncodeSensorMode("Eco"), 0);
+  assert.equal(teevolutionEncodeSensorMode("High"), 1);
+  assert.throws(() => teevolutionEncodeSensorMode("Ultra"), /cannot be written/);
+});
+
+test("RapidSync LCD time packets match Teevolink framing and CRC", () => {
+  // Arrange — Saturday 15 Aug 2026 21:27:00 local (verified on hardware)
+  const now = new Date(2026, 7, 15, 21, 27, 0);
+
+  // Act
+  const packet = teevolutionBuildLcdTimePacket(now);
+
+  // Assert
+  assert.equal(packet.length, TEEVOLUTION_LCD_PACKET_LENGTH);
+  assert.equal(packet[0], TEEVOLUTION_LCD_REPORT_ID);
+  assert.deepEqual([...packet.subarray(1, 11)], [0x00, 0x10, 0x07, 0xea, 0x08, 0x0f, 0x15, 0x1b, 0x00, 6]);
+  assert.equal(packet[39], teevolutionLcdChecksum(packet));
+  assert.equal(now.getDay(), 6);
+});
+
+test("key-function records match Teevolink's 4-byte flash layout", () => {
+  const left = teevolutionEncodeKeyFunction(TEEVOLUTION_KEY_CLASS.mouse, 0x0100);
+  assert.deepEqual([...left], [0x01, 0x01, 0x00, 0x53]);
+  assert.deepEqual(teevolutionDecodeKeyFunction(left), {
+    cls: 1,
+    param: 0x0100,
+    checksumValid: true,
+  });
+  assert.equal(teevolutionKeyFunctionLabel(left), "Left Click");
+  assert.equal(teevolutionKeyFunctionAddress(0), 96);
+  assert.equal(teevolutionKeyFunctionAddress(4), 0x70);
+  assert.equal(teevolutionFindButtonAction("Backward")?.param, 0x0800);
+  assert.equal(teevolutionFindButtonAction("Launch rocket"), null);
+
+  const table = new Uint8Array(24);
+  const defaults: Array<readonly [number, number]> = [
+    [1, 0x0100], [1, 0x0200], [1, 0x0400], [1, 0x0800], [1, 0x1000], [2, 0x0100],
+  ];
+  defaults.forEach(([cls, param], index) => {
+    table.set(teevolutionEncodeKeyFunction(cls, param), index * 4);
+  });
+  const flash = new Uint8Array(120);
+  flash.set(table, 96);
+  assert.deepEqual(teevolutionDecodeButtonMappings(flash), {
+    Left: "Left Click",
+    Right: "Right Click",
+    Middle: "Middle Click",
+    Back: "Backward",
+    Forward: "Forward",
+    DPI: "DPI Loop",
+  });
+  assert.equal(teevolutionKeyTableHasLeftClick(table), true);
+  table.set(teevolutionEncodeKeyFunction(1, 0x0200), 0);
+  assert.equal(teevolutionKeyTableHasLeftClick(table), false);
+  assert.equal(teevolutionKeyFunctionLabel([6, 0x01, 0x05, 0]), "Custom");
+});
+
+test("SetCurrentConfig matches TeevoLink's 0-based four-bank picker", () => {
+  const profile0 = teevolutionBuildSetCurrentProfile(0);
+  const profile3 = teevolutionBuildSetCurrentProfile(3);
+  assert.deepEqual([...profile0.slice(0, 6)], [0x0f, 0, 0, 0, 1, 0]);
+  assert.deepEqual([...profile3.slice(0, 6)], [0x0f, 0, 0, 0, 1, 3]);
+  assert.equal(teevolutionPacketChecksumIsValid(profile0), true);
+  assert.equal(teevolutionPacketChecksumIsValid(profile3), true);
+  assert.equal(TEEVOLUTION_PROFILE_COUNT, 4);
+  assert.throws(() => teevolutionBuildSetCurrentProfile(4), /0 and 3/);
+
+  const reply = new Uint8Array([0x0e, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  reply[15] = (0x55 - TEEVOLUTION_REPORT_ID - reply.slice(0, 15).reduce((sum, byte) => sum + byte, 0)) & 0xff;
+  assert.equal(teevolutionDecodeCurrentProfile(reply), 2);
+  reply[1] = 1;
+  reply[15] = (0x55 - TEEVOLUTION_REPORT_ID - reply.slice(0, 15).reduce((sum, byte) => sum + byte, 0)) & 0xff;
+  assert.equal(teevolutionDecodeCurrentProfile(reply), null);
+});

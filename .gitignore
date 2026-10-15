@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+web/
+dist-installer/
+*.tsbuildinfo
+
+# not part of the published codebase
+bridge-source/
+
+# env with real values (keep .env.example only)
+.env
+.env.production
+.env*.local
+
+# packaged artifacts
+*.zip
+
+# local / editor / OS
+.claude/
+.DS_Store
+Thumbs.db
+*.log
+
+# git bundle artifact
+*.bundle
+
+# local-only directories and docs (not part of the published codebase)
+hypertune-mouse-control/
+Hypertune-Build-Brief.md
+Hypertune-Overview.md

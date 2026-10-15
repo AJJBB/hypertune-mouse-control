@@ -1,0 +1,522 @@
+import type { MouseStatus } from "../mouse-types.ts";
+import {
+  COMPX_HEADER_LENGTH as HEADER_LENGTH,
+  COMPX_PACKET_LENGTH as PACKET_LENGTH,
+  COMPX_REPORT_ID as REPORT_ID,
+  COMPX_STATUS as STATUS,
+  compaxDecodeDpiStages,
+  compaxDecodeFirmware,
+  compaxDecodeLiftOff,
+  compaxDecodePollingRate,
+  compaxDecodeSleep,
+  compaxEncodeRequest,
+  LAMZU_POLLING_RATES as POLLING_RATES,
+  LAMZU_VENDOR_IDS,
+  lamzuProduct,
+  type CompaxDpiStage,
+  type LamzuProduct,
+} from "@openmouse/protocol/lamzu";
+
+const SLEEP_SECONDS: readonly number[] = [10, 30, 60, 300, 600, 1800];
+
+const RESPONSE_ATTEMPTS = 12;
+const RESPONSE_DELAY_MS = 30;
+const WAKE_DELAY_MS = 300;
+const QUICK_ATTEMPTS = 3;
+const SLEEP_DISABLED_MIN = 0xff00;
+const SLEEP_MAX_SECONDS = 0xfeff;
+const DPI_STEP = 50;
+const DPI_MAX = 30000;
+const DEBOUNCE_MAX_MS = 15;
+const NOTIFY_REPORT_ID = 4;
+const NOTIFY_DEBOUNCE_MS = 200;
+const NOTIFY_KINDS = new Set([0x03, 0x06, 0x08]);
+
+const TARGET = {
+  dongle: 0x00,
+  mouse: 0x02,
+} as const;
+
+const PAGE = {
+  device: 0x00,
+  profile: 0x01,
+  dongle: 0x02,
+} as const;
+
+type LiftOffDistance = NonNullable<MouseStatus["liftOffDistance"]>;
+
+const LIFT_OFF_DISTANCES: ReadonlyArray<readonly [number, LiftOffDistance]> = [
+  [0x87, "Low"],
+  [0x01, "Medium"],
+  [0x02, "High"],
+];
+
+interface LamzuRequest {
+  target: number;
+  page: number;
+  command: number;
+  length: number;
+  args: readonly number[];
+  attempts?: number;
+}
+
+const READ = {
+  firmware: { target: TARGET.mouse, page: PAGE.device, command: 0x81, length: 0x10, args: [] },
+  dongleFirmware: { target: TARGET.dongle, page: PAGE.device, command: 0x81, length: 0x10, args: [], attempts: 2 },
+  battery: { target: TARGET.mouse, page: PAGE.device, command: 0x83, length: 0x02, args: [] },
+  activeProfile: { target: TARGET.mouse, page: PAGE.device, command: 0x85, length: 0x01, args: [] },
+} as const satisfies Record<string, LamzuRequest>;
+
+const PROFILE_READ = {
+  sleepTimeout: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.device, command: 0x87, length: 0x03, args: [profile] }),
+  debounce: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.device, command: 0x88, length: 0x02, args: [profile] }),
+  dpiStages: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x81, length: 0x0a, args: [profile, 0x06] }),
+  activeStage: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x82, length: 0x02, args: [profile] }),
+  pollingRate: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x80, length: 0x02, args: [profile] }),
+  liftOffDistance: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x88, length: 0x02, args: [profile] }),
+  separateAxes: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x8d, length: 0x02, args: [profile] }),
+  angleSnapping: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x84, length: 0x02, args: [profile] }),
+  motionSync: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x89, length: 0x02, args: [profile] }),
+  competitiveMode: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x93, length: 0x02, args: [profile] }),
+  hyperMode: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x8b, length: 0x02, args: [profile] }),
+  rippleControl: (profile: number): LamzuRequest =>
+    ({ target: TARGET.mouse, page: PAGE.profile, command: 0x8a, length: 0x02, args: [profile] }),
+  // Addressed to the receiver itself, not the mouse behind it.
+  dongleLed: (profile: number): LamzuRequest =>
+    ({ target: TARGET.dongle, page: PAGE.dongle, command: 0x84, length: 0x02, args: [profile] }),
+} as const;
+
+const WRITE = {
+  dpiStages: 0x01,
+  pollingRate: 0x00,
+  liftOffDistance: 0x08,
+  sleepTimeout: 0x07,
+  debounce: 0x08,
+  angleSnapping: 0x04,
+  motionSync: 0x09,
+  competitiveMode: 0x13,
+  hyperMode: 0x0b,
+  rippleControl: 0x0a,
+  dongleLed: 0x04,
+} as const;
+
+export type LamzuDpiStage = CompaxDpiStage;
+
+export class LamzuHidClient {
+  readonly canDisableSleep = false;
+
+  private queue: Promise<unknown> = Promise.resolve();
+  private readonly staticReads = new Map<string, Promise<Uint8Array | null>>();
+  private lastStatus: MouseStatus | null = null;
+  private notifier: HIDDevice | null = null;
+  private notifyListener: ((event: HIDInputReportEvent) => void) | null = null;
+  private activeProfile = 1;
+
+  readonly device: HIDDevice;
+
+  constructor(device: HIDDevice) {
+    this.device = device;
+  }
+
+  static isSupported(device: HIDDevice): boolean {
+    const search = (collection: HIDCollectionInfo): boolean =>
+      collection.featureReports.some((report) => report.reportId === REPORT_ID)
+      || collection.children.some(search);
+    return LAMZU_VENDOR_IDS.includes(device.vendorId)
+      && lamzuProduct(device.vendorId, device.productId) !== undefined
+      && device.collections.some(search);
+  }
+
+  private profile(): LamzuProduct | undefined {
+    return lamzuProduct(this.device.vendorId, this.device.productId);
+  }
+
+  async open(): Promise<void> {
+    if (!this.device.opened) await this.device.open();
+  }
+
+  async close(): Promise<void> {
+    this.staticReads.clear();
+    this.lastStatus = null;
+    if (this.notifier && this.notifyListener) {
+      this.notifier.removeEventListener("inputreport", this.notifyListener);
+      if (this.notifier.opened) await this.notifier.close();
+    }
+    this.notifier = null;
+    this.notifyListener = null;
+    if (this.device.opened) await this.device.close();
+  }
+
+  async startNotifications(onChange: () => void): Promise<boolean> {
+    if (this.notifier) return true;
+    const devices = await navigator.hid?.getDevices() ?? [];
+    const sibling = devices.find((candidate) =>
+      candidate !== this.device
+      && candidate.vendorId === this.device.vendorId
+      && candidate.productId === this.device.productId
+      && candidate.collections.some((collection) =>
+        collection.inputReports.some((report) => report.reportId === NOTIFY_REPORT_ID)));
+    if (!sibling) return false;
+    if (!sibling.opened) await sibling.open();
+
+    let timer: number | null = null;
+    this.notifyListener = (event: HIDInputReportEvent) => {
+      if (event.reportId !== NOTIFY_REPORT_ID || !NOTIFY_KINDS.has(event.data.getUint8(0))) return;
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        onChange();
+      }, NOTIFY_DEBOUNCE_MS);
+    };
+    sibling.addEventListener("inputreport", this.notifyListener);
+    this.notifier = sibling;
+    return true;
+  }
+
+  private once(key: string, read: () => Promise<Uint8Array | null>): Promise<Uint8Array | null> {
+    const pending = this.staticReads.get(key);
+    if (pending) return pending;
+    const started = read();
+    this.staticReads.set(key, started);
+    started.catch(() => this.staticReads.delete(key));
+    return started;
+  }
+
+  displayName(): string {
+    const known = this.profile();
+    return known ? `${this.deviceBrand()} ${known.model}` : this.device.productName || "Lamzu";
+  }
+
+  deviceBrand(): MouseStatus["brand"] {
+    return this.profile()?.brand ?? "Lamzu";
+  }
+
+  maxDpi(): number {
+    return this.profile()?.maxDpi ?? DPI_MAX;
+  }
+
+  getSleepOptions(): readonly number[] {
+    return this.profile()?.sleepOptions ?? SLEEP_SECONDS;
+  }
+
+  getDebounceMaxMs(): number {
+    return DEBOUNCE_MAX_MS;
+  }
+
+  getSupportedPollingRates(): number[] {
+    const listed = this.profile()?.pollingRates;
+    if (listed) return [...listed];
+    return [...new Set(POLLING_RATES.map(([, hertz]) => hertz))].sort((left, right) => left - right);
+  }
+
+  getDpiOptions(): number[] {
+    const options: number[] = [];
+    for (let dpi = DPI_STEP; dpi <= this.maxDpi(); dpi += DPI_STEP) options.push(dpi);
+    return options;
+  }
+
+  isWireless(): boolean {
+    const known = this.profile();
+    if (known) return known.wireless;
+    return /receiver|dongle/i.test(this.device.productName || "");
+  }
+
+  async readStatus(live = false): Promise<MouseStatus> {
+    await this.open();
+    if (live && this.lastStatus) return await this.readLiveStatus(this.lastStatus);
+    const wireless = this.isWireless();
+    const firmware = await this.once("firmware", () => this.request(READ.firmware));
+    if (!firmware) throw new Error("The mouse did not report a firmware version.");
+    const dongleFirmware = await this.once("dongleFirmware", () =>
+      wireless ? this.request(READ.dongleFirmware).catch(() => null) : Promise.resolve(null));
+    const battery = await this.request(READ.battery);
+    // Profile-page commands must address the profile the mouse is actually
+    // running, not a fixed slot: writing to profile 1 is silently ignored when
+    // a different onboard profile is active.
+    const activeProfileReply = await this.request(READ.activeProfile).catch(() => null);
+    const profile = activeProfileReply ? Math.max(1, activeProfileReply[0]) : 1;
+    this.activeProfile = profile;
+    const sleepTimeout = await this.request(PROFILE_READ.sleepTimeout(profile)).catch(() => null);
+    const debounce = await this.request(PROFILE_READ.debounce(profile)).catch(() => null);
+    const stages = this.decodeDpiStages(await this.request(PROFILE_READ.dpiStages(profile)));
+    const activeStage = this.stageIndex((await this.request(PROFILE_READ.activeStage(profile)))[1], stages.length);
+    const pollingRate = await this.request(PROFILE_READ.pollingRate(profile));
+    const liftOffDistance = await this.request(PROFILE_READ.liftOffDistance(profile));
+    const separateAxes = await this.request(PROFILE_READ.separateAxes(profile)).catch(() => null);
+    const angleSnapping = await this.request(PROFILE_READ.angleSnapping(profile)).catch(() => null);
+    const motionSync = await this.request(PROFILE_READ.motionSync(profile)).catch(() => null);
+    const competitiveMode = await this.request(PROFILE_READ.competitiveMode(profile)).catch(() => null);
+    const hyperMode = await this.request(PROFILE_READ.hyperMode(profile)).catch(() => null);
+    const rippleControl = await this.request(PROFILE_READ.rippleControl(profile)).catch(() => null);
+    const dongleLed = this.profile()?.dongleLed
+      ? await this.request(PROFILE_READ.dongleLed(profile)).catch(() => null)
+      : null;
+    const stage = stages[activeStage];
+    if (!stage) throw new Error("The mouse did not report any DPI stages.");
+    return this.lastStatus = {
+      brand: this.deviceBrand(),
+      name: this.displayName(),
+      ui: {
+        family: this.profile()?.uiFamily ?? "lamzu",
+        hideUnsupportedPollingRates: true,
+        forceShowBattery: true,
+      },
+      batteryPercent: battery[1] <= 100 ? battery[1] : null,
+      batteryState: battery[0] === 1 ? "Charging" : "Discharging",
+      dpi: stage.x,
+      dpiY: stage.y,
+      supportsSeparateDpiAxes: separateAxes ? separateAxes[1] === 1 : false,
+      pollingRateHz: this.decodePollingRate(pollingRate[1]),
+      supportedPollingRates: this.getSupportedPollingRates(),
+      activeProfile: activeProfileReply ? activeProfileReply[0] : null,
+      angleSnapping: angleSnapping ? angleSnapping[1] === 1 : null,
+      motionSync: motionSync ? motionSync[1] === 1 : null,
+      performanceMode: competitiveMode ? competitiveMode[1] === 1 : null,
+      hyperMode: hyperMode ? hyperMode[1] === 1 : null,
+      rippleControl: rippleControl ? rippleControl[1] === 1 : null,
+      dongleLedEnabled: dongleLed ? dongleLed[1] === 1 : null,
+      connectionType: wireless ? "Wireless" : "Wired",
+      connectionDetail: wireless ? "2.4 GHz receiver" : "Wired USB",
+      debounceMs: debounce ? debounce[1] : null,
+      sleepTimeout: this.decodeSleepTimeout(sleepTimeout),
+      liftOffDistance: this.decodeLiftOffDistance(liftOffDistance[1]),
+      firmware: dongleFirmware
+        ? [this.decodeFirmware("Mouse", firmware), this.decodeFirmware("Dongle", dongleFirmware)]
+        : [this.decodeFirmware("Mouse", firmware)],
+    };
+  }
+
+  private async readLiveStatus(previous: MouseStatus): Promise<MouseStatus> {
+    const battery = await this.request(READ.battery);
+    const pollingRate = await this.request(PROFILE_READ.pollingRate(this.activeProfile));
+    return this.lastStatus = {
+      ...previous,
+      batteryPercent: battery[1] <= 100 ? battery[1] : null,
+      batteryState: battery[0] === 1 ? "Charging" : "Discharging",
+      pollingRateHz: this.decodePollingRate(pollingRate[1]),
+    };
+  }
+
+  async setPollingRate(pollingRateHz: number): Promise<number> {
+    const encoded = POLLING_RATES.find(([, hertz]) => hertz === pollingRateHz);
+    if (!encoded || !this.getSupportedPollingRates().includes(pollingRateHz)) {
+      throw new Error(`This mouse does not support ${pollingRateHz} Hz.`);
+    }
+    const profile = await this.currentProfile();
+    await this.write(PAGE.profile, WRITE.pollingRate, profile, [encoded[0]]);
+    const confirmed = this.decodePollingRate((await this.request(PROFILE_READ.pollingRate(profile)))[1]);
+    if (confirmed !== pollingRateHz) {
+      throw new Error(`The mouse kept ${confirmed} Hz instead of ${pollingRateHz} Hz.`);
+    }
+    this.patch({ pollingRateHz: confirmed });
+    return confirmed;
+  }
+
+  async setLiftOffDistance(value: LiftOffDistance): Promise<LiftOffDistance> {
+    const encoded = LIFT_OFF_DISTANCES.find(([, name]) => name === value);
+    if (!encoded) throw new Error(`This mouse does not support a ${value.toLowerCase()} lift-off distance.`);
+    const profile = await this.currentProfile();
+    await this.write(PAGE.profile, WRITE.liftOffDistance, profile, [encoded[0]]);
+    const confirmed = this.decodeLiftOffDistance((await this.request(PROFILE_READ.liftOffDistance(profile)))[1]);
+    if (confirmed !== value) {
+      throw new Error(`The mouse kept a ${String(confirmed).toLowerCase()} lift-off distance instead of ${value.toLowerCase()}.`);
+    }
+    this.patch({ liftOffDistance: confirmed });
+    return confirmed;
+  }
+
+  async setAngleSnapping(enabled: boolean): Promise<boolean> {
+    return await this.setFlag(WRITE.angleSnapping, PROFILE_READ.angleSnapping, enabled, "angleSnapping", "angle snapping");
+  }
+
+  async setMotionSync(enabled: boolean): Promise<boolean> {
+    return await this.setFlag(WRITE.motionSync, PROFILE_READ.motionSync, enabled, "motionSync", "Motion Sync");
+  }
+
+  async setPerformanceMode(enabled: boolean): Promise<boolean> {
+    return await this.setFlag(WRITE.competitiveMode, PROFILE_READ.competitiveMode, enabled, "performanceMode", "competitive mode");
+  }
+
+  async setHyperMode(enabled: boolean): Promise<boolean> {
+    return await this.setFlag(WRITE.hyperMode, PROFILE_READ.hyperMode, enabled, "hyperMode", "Hyper mode");
+  }
+
+  async setRippleControl(enabled: boolean): Promise<boolean> {
+    return await this.setFlag(WRITE.rippleControl, PROFILE_READ.rippleControl, enabled, "rippleControl", "ripple control");
+  }
+
+  async setDongleLed(enabled: boolean): Promise<boolean> {
+    if (!this.profile()?.dongleLed) throw new Error("This receiver has no LED control.");
+    const profile = await this.currentProfile();
+    await this.request({
+      target: TARGET.dongle, page: PAGE.dongle, command: WRITE.dongleLed, length: 0x02, args: [profile, enabled ? 1 : 0],
+    });
+    const confirmed = (await this.request(PROFILE_READ.dongleLed(profile)))[1] === 1;
+    if (confirmed !== enabled) throw new Error(`The receiver left its LED ${confirmed ? "on" : "off"}.`);
+    this.patch({ dongleLedEnabled: confirmed });
+    return confirmed;
+  }
+
+  private async setFlag(
+    command: number,
+    read: (profile: number) => LamzuRequest,
+    enabled: boolean,
+    field: "angleSnapping" | "motionSync" | "performanceMode" | "hyperMode" | "rippleControl",
+    label: string,
+  ): Promise<boolean> {
+    const profile = await this.currentProfile();
+    await this.write(PAGE.profile, command, profile, [enabled ? 1 : 0]);
+    const confirmed = (await this.request(read(profile)))[1] === 1;
+    if (confirmed !== enabled) {
+      throw new Error(`The mouse left ${label} ${confirmed ? "on" : "off"}.`);
+    }
+    this.patch({ [field]: confirmed });
+    return confirmed;
+  }
+
+  async setDebounceTime(milliseconds: number): Promise<number> {
+    if (!Number.isInteger(milliseconds) || milliseconds < 0 || milliseconds > DEBOUNCE_MAX_MS) {
+      throw new Error(`Debounce must be a whole number of milliseconds between 0 and ${DEBOUNCE_MAX_MS}.`);
+    }
+    const profile = await this.currentProfile();
+    await this.write(PAGE.device, WRITE.debounce, profile, [milliseconds]);
+    const confirmed = (await this.request(PROFILE_READ.debounce(profile)))[1];
+    if (confirmed !== milliseconds) {
+      throw new Error(`The mouse kept ${confirmed} ms of debounce instead of ${milliseconds} ms.`);
+    }
+    this.patch({ debounceMs: confirmed });
+    return confirmed;
+  }
+
+  async setSleepTimeout(seconds: number): Promise<number> {
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > SLEEP_MAX_SECONDS) {
+      throw new Error(`The sleep timeout must be a whole number of seconds between 1 and ${SLEEP_MAX_SECONDS}.`);
+    }
+    const profile = await this.currentProfile();
+    await this.write(PAGE.device, WRITE.sleepTimeout, profile, [seconds >> 8 & 0xff, seconds & 0xff]);
+    const reply = await this.request(PROFILE_READ.sleepTimeout(profile));
+    const confirmed = (reply[1] << 8) | reply[2];
+    if (confirmed !== seconds) {
+      throw new Error(`The mouse kept a ${confirmed} second sleep timeout instead of ${seconds} seconds.`);
+    }
+    this.patch({ sleepTimeout: this.decodeSleepTimeout(reply) });
+    return confirmed;
+  }
+
+  async setDpi(dpi: number, dpiY: number = dpi): Promise<number> {
+    const ceiling = this.maxDpi();
+    for (const value of [dpi, dpiY]) {
+      if (!Number.isInteger(value) || value < DPI_STEP || value > ceiling || value % DPI_STEP !== 0) {
+        throw new Error(`${value.toLocaleString()} is not a supported DPI value.`);
+      }
+    }
+    const profile = await this.currentProfile();
+    const stages = this.decodeDpiStages(await this.request(PROFILE_READ.dpiStages(profile)));
+    const active = this.stageIndex((await this.request(PROFILE_READ.activeStage(profile)))[1], stages.length);
+    if (!stages[active]) throw new Error("The mouse did not report any DPI stages.");
+    stages[active] = { x: dpi, y: dpiY };
+    await this.write(PAGE.profile, WRITE.dpiStages, profile, [
+      stages.length,
+      ...stages.flatMap((stage) => [stage.x >> 8 & 0xff, stage.x & 0xff, stage.y >> 8 & 0xff, stage.y & 0xff]),
+    ]);
+    const confirmed = this.decodeDpiStages(await this.request(PROFILE_READ.dpiStages(profile)))[active];
+    if (!confirmed || confirmed.x !== dpi || confirmed.y !== dpiY) {
+      throw new Error(`The mouse kept ${confirmed ? confirmed.x.toLocaleString() : "an unknown"} DPI instead of ${dpi.toLocaleString()}.`);
+    }
+    this.patch({ dpi: confirmed.x, dpiY: confirmed.y });
+    return confirmed.x;
+  }
+
+  private async currentProfile(): Promise<number> {
+    const reply = await this.request(READ.activeProfile);
+    this.activeProfile = Math.max(1, reply[0]);
+    return this.activeProfile;
+  }
+
+  private async write(page: number, command: number, profile: number, values: readonly number[]): Promise<void> {
+    const args = [profile, ...values];
+    await this.request({ target: TARGET.mouse, page, command, length: args.length, args });
+  }
+
+  private patch(changes: Partial<MouseStatus>): void {
+    if (this.lastStatus) this.lastStatus = { ...this.lastStatus, ...changes };
+  }
+
+  private stageIndex(reported: number, count: number): number {
+    return Math.min(Math.max(reported, 1), Math.max(count, 1)) - 1;
+  }
+
+  private async request(spec: LamzuRequest): Promise<Uint8Array> {
+    const run = this.queue.then(() => this.exchange(spec), () => this.exchange(spec));
+    this.queue = run.catch(() => undefined);
+    return await run;
+  }
+
+  private async exchange(spec: LamzuRequest): Promise<Uint8Array> {
+    await this.open();
+    const request = spec.target === TARGET.mouse
+      ? { ...spec, target: this.profile()?.mouseTarget ?? TARGET.mouse }
+      : spec;
+    const packet = compaxEncodeRequest(request);
+    await this.device.sendFeatureReport(REPORT_ID, packet);
+
+    const attempts = spec.attempts ?? RESPONSE_ATTEMPTS;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const reply = this.copyDataView(await this.device.receiveFeatureReport(REPORT_ID));
+      if (reply[0] === STATUS.unsupported) throw new Error(this.describe(spec, "is not supported by this mouse"));
+      if (reply[0] === STATUS.ok && reply[4] === spec.page && reply[5] === spec.command) {
+        const length = Math.min(reply[3], PACKET_LENGTH - HEADER_LENGTH);
+        return reply.slice(HEADER_LENGTH, HEADER_LENGTH + length);
+      }
+      if (reply[0] !== STATUS.pending && reply[0] !== STATUS.busy && reply[0] !== STATUS.ok) {
+        throw new Error(this.describe(spec, `returned an unexpected status 0x${reply[0].toString(16)}`));
+      }
+      await this.delay(attempt < QUICK_ATTEMPTS ? RESPONSE_DELAY_MS : WAKE_DELAY_MS);
+    }
+    throw new Error(this.describe(spec, "got no answer — the mouse may be asleep or out of range"));
+  }
+
+  private describe(spec: LamzuRequest, problem: string): string {
+    const hex = (value: number) => `0x${value.toString(16).padStart(2, "0")}`;
+    return `Page ${hex(spec.page)} command ${hex(spec.command)} ${problem}.`;
+  }
+
+  private decodeDpiStages(payload: Uint8Array): LamzuDpiStage[] {
+    return compaxDecodeDpiStages(payload);
+  }
+
+  private decodePollingRate(value: number): number {
+    return compaxDecodePollingRate(POLLING_RATES, value);
+  }
+
+  private decodeLiftOffDistance(value: number): LiftOffDistance | null {
+    return compaxDecodeLiftOff(value);
+  }
+
+  private decodeSleepTimeout(payload: Uint8Array | null): number | null {
+    return compaxDecodeSleep(payload, SLEEP_DISABLED_MIN);
+  }
+
+  private decodeFirmware(label: string, payload: Uint8Array | null): string {
+    return compaxDecodeFirmware(label, payload);
+  }
+
+  private copyDataView(view: DataView): Uint8Array {
+    return new Uint8Array(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
+  }
+
+  private delay(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  }
+}

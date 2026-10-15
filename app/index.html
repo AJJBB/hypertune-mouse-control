@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#09090b" />
+    <!-- The early theme bootstrap that used to live here as an inline <script>
+         now runs at the top of the app bundle (src/control.tsx) so the page can
+         ship a strict Content-Security-Policy with no inline-script exception. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Sora:wght@500;600;700&display=swap" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Hypertune Mouse Control</title>
+    <meta name="description" content="Browser-based control panel for supported gaming mice. Change DPI, polling rate, and sensor settings without installing a driver for every brand." />
+    <link rel="canonical" href="https://hypertune-mouse-control.vercel.app/" />
+    <meta property="og:url" content="https://hypertune-mouse-control.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Hypertune" />
+    <meta property="og:title" content="Hypertune Mouse Control" />
+    <meta property="og:description" content="Browser-based control panel for supported gaming mice. Change DPI, polling rate, and sensor settings without installing a driver for every brand." />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <div id="control-app"></div>
+    <script type="module" src="/src/control.tsx"></script>
+  </body>
+</html>

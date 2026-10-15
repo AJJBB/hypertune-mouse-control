@@ -1,0 +1,74 @@
+# `@openmouse/protocol`
+
+Transport-independent gaming mouse protocol codecs.
+
+The package owns packet layouts, command constants, checksums, encoders,
+decoders, protocol-specific value types, device catalogs, and the WebHID
+drivers a mouse-control app can build on. Pure codec entry points do not
+depend on WebHID, so browser, Node.js, and TypeScript projects can use them
+independently from the optional driver layer.
+
+```ts
+import { buildFinalmouseReport } from "@openmouse/protocol/finalmouse";
+import { encodeRazerRequest } from "@openmouse/protocol/razer";
+import { RAZER_PRODUCTS } from "@openmouse/protocol/razer-devices";
+
+import {
+  createSupportedClient,
+  SUPPORTED_HID_FILTERS,
+} from "@openmouse/protocol/drivers";
+```
+
+## Development
+
+```sh
+npm install
+npm run check
+```
+
+The `prepare` script builds `dist` automatically when this package is installed
+directly from Git. Codec sources are grouped by brand under `src/`; WebHID
+drivers, discovery filters, the driver registry, and shared status types live
+under `src/drivers/`. OpenMouse retains application orchestration and UI code.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for protocol boundaries, hardware
+evidence requirements, local OpenMouse integration, and the pull-request
+checklist.
+
+## Protocol entry points
+
+| Brand | Import |
+| --- | --- |
+| ATK | `@openmouse/protocol/atk` |
+| Endgame Gear OP1/XM2 8K | `@openmouse/protocol/endgame-gear-op1` |
+| Endgame Gear wireless | `@openmouse/protocol/endgame-gear-we` |
+| Finalmouse | `@openmouse/protocol/finalmouse` |
+| Keychron | `@openmouse/protocol/keychron` |
+| Lamzu / CRDRAKO / Attack Shark | `@openmouse/protocol/lamzu` |
+| Logitech | `@openmouse/protocol/logitech` |
+| Microsoft | `@openmouse/protocol/microsoft` |
+| moddoMOUSE | `@openmouse/protocol/moddo` |
+| Ninjutso | `@openmouse/protocol/ninjutso` |
+| Orbital | `@openmouse/protocol/orbital` |
+| Pulsar | `@openmouse/protocol/pulsar` |
+| Razer legacy/current | `@openmouse/protocol/razer` |
+| Razer V4 | `@openmouse/protocol/razer-v4` |
+| SteelSeries Rival 3 (Gen 1) | `@openmouse/protocol/steelseries` |
+| Teevolution | `@openmouse/protocol/teevolution` |
+| VGN | `@openmouse/protocol/vgn` |
+| WLMouse | `@openmouse/protocol/wlmouse` |
+
+An exported protocol means OpenMouse implements that wire format. It does not
+claim every mouse from that brand works. When a catalog provides a `verified`
+field, use it to distinguish hardware-tested support from USB recognition.
+
+The Ninjutso catalog and packet layouts are derived from the JavaScript shipped
+by the official NinjaForce WebHID panel. They have automated transport and
+codec coverage, but are not marked as hardware-verified until tested on the
+corresponding Sora V2/V3 and TEN-family devices.
+
+The SteelSeries Rival 3 Gen 1 codec and driver are derived from the public
+rivalcfg project, corroborated against libratbag and OpenRGB. The device is
+write-only — only the firmware version can be read back — and no entry is
+marked hardware-verified yet. See
+[docs/steelseries-testing.md](docs/steelseries-testing.md).
