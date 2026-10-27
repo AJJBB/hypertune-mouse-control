@@ -23,6 +23,9 @@ Identifiers verified on hardware:
 - `1532:008a` — Viper Mini, wired (separate driver)
 - `1532:00b8` — Viper V3 HyperSpeed, stock HyperSpeed receiver
 - `1532:00a3` — Cobra, wired (separate driver)
+- `1532:00b6` — DeathAdder V3 Pro, wired (firmware 2.1)
+- `1532:00b7` — DeathAdder V3 Pro, stock HyperSpeed receiver (firmware 2.1)
+- `1532:004c`: Diamondback Chroma, wired (firmware 1.0, through OpenMouse Bridge)
 
 Mouse Dock Pro uses the same 90-byte protocol as the paired mouse. It has no
 fixed polling list: if the paired mouse answers the extended polling command it
@@ -156,7 +159,55 @@ this model and took the whole read down with it. The two are now read
 independently; an unreadable charging state reports `Unknown` rather than
 costing the level.
 
-## DeathAdder V3 Pro (`1532:00b6`) — open: a write that confirms but may not apply
+## DeathAdder V3 Pro (`1532:00b6` wired, `1532:00b7` receiver) — verified (firmware 2.1)
+
+A third session, run from Node over hidapi against the same driver class
+(`RazerHidClient`, unmodified) with Synapse and every Razer service quit,
+settled both questions the two captures below left open. Raw reports and
+per-step results are in `captures/razer-deathadder-v3-pro/`.
+
+Interface: `MI_00`, the collection whose only usage is Generic Desktop Mouse,
+answered on the first attempt. `readStatus()` took ~850 ms for 16 feature
+report exchanges; a 3-minute soak of one read every 5 s completed 31/31 with
+latency between 822 and 914 ms and no stalls.
+
+| Setting | Written | Read back after reconnect | After power cycle |
+| --- | --- | --- | --- |
+| DPI | 800, 3200, 1600 | each value | 1600 |
+| Polling (legacy command) | 125, 500, 1000 Hz | each value | 1000 |
+| Polling 2000 Hz | refused by the driver ("not supported on this connection") | — | — |
+| Auto sleep | 60 s, 900 s, 300 s | each value | 60 s held |
+| Low power | 5 %, 50 %, 30 % | each value | 5 % held |
+
+**Polling is measured, not just read back.** A `pointerrawupdate` counter
+(1 s sliding window, peak) read 842 Hz with the mouse at 1000 Hz and 124 Hz
+after the driver wrote 125 Hz. The legacy command with its divisor of 1000
+changes the link rate on this receiver; `highRatePolling: false` is right.
+
+**Sleep and low power persist.** Both were written, the mouse was switched off
+at its power switch for a few seconds and back on, and both re-read as written
+(60 s and 5 %). Of the two mechanisms below, that rules out 1 (no commit step,
+volatile state): the values live in the mouse. The original report was made
+with the vendor software present, which leaves 2 (contention) as the
+explanation; with it fully quit nothing here needed a commit step.
+
+**Wired (`1532:00b6`), same session, cable plugged into the same mouse.**
+`MI_00` answered first try as "DeathAdder V3 Pro (Wired)", connection "Wired",
+battery "Charging". The identical 13-step write/read-back run passed 13/13
+(DPI 800/3200, polling 125/500/1000 on the legacy command, 2000 Hz refused,
+sleep 60/900 s, low power 5/50 %), all restored afterwards. Polling measured
+126 Hz peak at 125 and well above 500 at 1000. A second 3-minute soak read
+31/31 at 824 to 887 ms, and the battery climbed from 25 % to 32 % over the
+two wired runs, so the charge read is live, not cached. Settings written on
+one transport read back identically on the other; they live in the mouse.
+
+Still open for this model:
+
+- Step 8 (an off-list timeout set in Synapse appearing in the dropdown) needs
+  Synapse, which cannot run alongside the test.
+- Lift-off: the row keeps `liftOff: false`, so class `0x0b` was not sent.
+
+### Earlier capture (`1532:00b6`) — a write that confirms but may not apply
 
 Reported: polling rate, low power mode and auto sleep "don't flash into the
 mouse", yet changing them in Razer's own software does show up here.
@@ -325,9 +376,11 @@ What is deliberately **not** attempted on an untested model:
   `asymmetricLiftOff` is set, which only the four Viper V2/V3 Pro ids have. An
   untested mouse that answers class `0x0b` still gets the plain three-stop
   tracking control, which costs reads only.
-- Lighting, button mapping and macros. The generic driver implements none of
-  them for any model — the only lighting controls anywhere in this project are
-  the dedicated Cobra and Viper Mini drivers.
+- Lighting, button mapping and macros. Macros are not implemented for any
+  Razer model. Lighting and button mapping are per-product allowlists
+  (`standardMatrixLighting`, `buttonMapping`) that only list models someone
+  has connected; beyond them, the only lighting controls are the dedicated
+  Cobra and Viper Mini drivers.
 
 To promote a model to verified:
 
@@ -575,7 +628,7 @@ the fix; the app now says exactly that when the open is refused on macOS.
 | Idle sleep | `0x07` / `0x83` | seconds, big-endian |
 | Low power | `0x07` / `0x81` | level out of 255 in the **first** byte, so 77 is 30% |
 | DPI | `0x04` / `0x85` | big-endian X and Y |
-| DPI stages | `0x04` / `0x86` | seven-byte records; decoded but not yet shown |
+| DPI stages | `0x04` / `0x86` | seven-byte records; decoded and shown read-only |
 | Polling, legacy | `0x00` / `0x85` | divisor of 1000; **wired only** |
 | Polling, extended | `0x00` / `0xc0` | divisor of 8000; **receiver only** |
 
@@ -732,8 +785,9 @@ needs a richer type before it can be exposed even once the command is found.
 - DPI step granularity is assumed to be 50. Values off that grid are rejected
   before they reach the mouse, so a finer or coarser real step would only mean
   the control offers the wrong choices.
-- The DPI stage table (`0x04`/`0x06`) is decoded and tested but never written.
-  A wrong length there is the one realistic way to corrupt stored settings.
+- The DPI stage table (`0x04`/`0x06`) is decoded and shown read-only but never
+  written. A wrong length there is the one realistic way to corrupt stored
+  settings.
 
 ## Viper Mini (verified on hardware)
 
@@ -817,3 +871,86 @@ other effects also use `0x3f`, but every other Cobra effect answers on `0x1f`
 and breathing does too, so the single `0x1f` choice holds.
 
 Brightness is not implemented: this driver covers effects and colour only.
+
+## Diamondback Chroma (`1532:004c`)
+
+Driven by the generic `RazerHidClient` on transaction id `0xff`. Verified on
+firmware 1.0 over the cable, through OpenMouse Bridge on Windows: identity,
+DPI and legacy polling read back, and an 800 DPI and a 1000 Hz write each
+round-tripped and were restored. The report is in
+`captures/razer-diamondback-chroma/`.
+
+It is the one model this driver lights, through openrazer's older
+standard-matrix family, and **the lighting has not been tried on hardware
+yet**:
+
+| Write | Class / ID | Notes |
+| --- | --- | --- |
+| Off / Spectrum / Wave / Static / Reactive / Breathing | `0x03` / `0x0a` | effect id first, no storage byte or led; one effect drives every LED |
+| Backlight brightness | `0x03` / `0x03` | storage byte, backlight led (`0x05`), level on a 0-255 scale |
+
+| Read | Class / ID | Notes |
+| --- | --- | --- |
+| Backlight brightness | `0x03` / `0x83` | level in the third byte |
+
+The effect write has no read-back, so the panel shows the last effect it wrote
+and marks the card write-only. Brightness is read on every refresh and
+confirmed after each write. Wave always runs in direction `0x01`.
+
+openrazer sends all of these on `0xff` except breathing, which it lists on
+`0x3f` in the same block where it lists the Cobra. The Cobra's breathing
+answered on its usual id, so breathing goes out on `0xff` here too. **If
+breathing alone fails, that is the first thing to change.**
+
+To test the lighting, with Synapse quit:
+
+1. Open the Lighting tab and note the brightness it reads.
+2. Pick each effect and watch the mouse: Off, Spectrum, Wave, Static, Reactive
+   (click to trigger it), and the three breathing modes.
+3. Change the Static colour, the Reactive speed and both Breathing dual
+   colours.
+4. Change the brightness, reload, and confirm the new level reads back.
+5. Unplug the mouse and plug it back in, and note whether the effect and the
+   brightness survived. Nothing reads the effect back, so this is the only way
+   to learn whether it is stored.
+6. Report any effect that errors or leaves the LEDs unchanged.
+
+## Basilisk V3 (`1532:0099`) and Basilisk V3 35K (`1532:00cb`)
+
+Driven by the generic `RazerHidClient`. Not verified by this project; a user
+reported the mouse connecting with no lighting card, which is what added the
+lighting. **The lighting has not been tried on hardware yet.** It follows
+openrazer's extended-matrix family for these two ids, every command on
+transaction id `0x1f`, addressed to one led at a time:
+
+| Zone | Led | Notes |
+| --- | --- | --- |
+| Mouse | `0x00` (`ZERO_LED`) | every LED at once; the only way to reach the underglow strip |
+| Scroll wheel | `0x01` | |
+| Logo | `0x04` | |
+
+| Write | Class / ID | Notes |
+| --- | --- | --- |
+| Off / Spectrum / Wave / Static | `0x0f` / `0x02` | `[storage, led, effect, ...]`; wave direction `0x01`, speed `0x28` |
+| Brightness | `0x0f` / `0x04` | `[storage, led, level]`, level on a 0-255 scale |
+
+| Read | Class / ID | Notes |
+| --- | --- | --- |
+| Brightness | `0x0f` / `0x84` | level in the third byte, read per led on every refresh |
+
+openrazer creates wave, spectrum, static and brightness for these models and
+no "none"; Off is the same family's effect `0x00`, so it is offered and is
+the first thing to drop if it fails. Reactive and breathing exist in the family
+but openrazer does not expose them here, so they are not offered.
+
+To test, with Synapse quit:
+
+1. Open the Lighting tab. Three zones should show, each with the brightness
+   it read; note the three levels.
+2. On the Mouse zone pick Spectrum, Wave, Static (change the colour) and Off,
+   and watch the whole mouse including the underglow strip.
+3. Repeat on Scroll wheel and Logo, and confirm only that zone changes.
+4. Change one zone's brightness, reload, and confirm the new level reads back.
+5. Unplug and replug the mouse and note whether the effects and brightness
+   survived.
+6. Report any effect that errors or leaves the LEDs unchanged.

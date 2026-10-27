@@ -3,12 +3,14 @@ import test from "node:test";
 
 import { LamzuHidClient } from "./hid.ts";
 import { AttackSharkHidClient } from "../attackshark/hid.ts";
-import { deviceBrand } from "../registry.ts";
+import { DEVICE_DRIVERS, deviceBrand } from "../registry.ts";
 import {
   ATTACKSHARK_PRODUCT_IDS,
   LAMZU_INCA_PRODUCTS,
   LAMZU_INCA_VENDOR_ID,
+  LAMZU_PRODUCTS,
   LAMZU_VENDOR_ID,
+  LUNAFURY_PRODUCT_IDS,
   lamzuProduct,
 } from "@openmouse/protocol/lamzu";
 
@@ -259,6 +261,57 @@ test("the Attack Shark R6 and R8 run on the CompX driver, not the Attack Shark o
   }
 });
 
+test("the LunaFury catalog contains only the four runtime identities", () => {
+  assert.deepEqual([...LUNAFURY_PRODUCT_IDS], [0x0032, 0x0033, 0x0054, 0x0084]);
+  for (const bootloader of [0xb032, 0xb033, 0xb054, 0xb084]) {
+    assert.equal(LAMZU_PRODUCTS.has(bootloader), false);
+  }
+});
+
+test("LunaFury LUNA33 and TYPE33 use the CompX driver with their own brand", async () => {
+  const cases = [
+    [0x0032, "LUNA33", "Wired", 6, [125, 250, 500, 1000]],
+    [0x0033, "LUNA33", "Wireless", 6, [125, 250, 500, 1000, 2000, 4000, 8000]],
+    [0x0054, "TYPE33", "Wired", 5, [125, 250, 500, 1000, 2000, 4000, 8000]],
+    [0x0084, "TYPE33", "Wireless", 5, [125, 250, 500, 1000, 2000, 4000, 8000]],
+  ] as const;
+
+  for (const [productId, model, connectionType, maxDpiStages, pollingRates] of cases) {
+    const { device, sent } = fakeR5Ultra(productId);
+    assert.equal(LamzuHidClient.isSupported(device), true);
+    assert.equal(AttackSharkHidClient.isSupported(device), false);
+    assert.deepEqual(
+      DEVICE_DRIVERS.filter((driver) => driver.supports(device)).map((driver) => driver.brand),
+      ["Lamzu"],
+    );
+
+    const client = new LamzuHidClient(device);
+    const status = await client.readStatus();
+    assert.equal(status.brand, "LunaFury");
+    assert.equal(status.name, `LunaFury ${model}`);
+    assert.equal(status.ui?.family, "lunafury");
+    assert.equal(deviceBrand(client), "LunaFury");
+    assert.equal(status.connectionType, connectionType);
+    assert.equal(client.getDpiOptions().at(-1), 30000);
+    assert.deepEqual(status.supportedPollingRates, pollingRates);
+    const dpiRead = sent.find((packet) => packet[4] === 0x01 && packet[5] === 0x81);
+    assert.equal(dpiRead?.[7], maxDpiStages);
+
+    if (connectionType === "Wired") {
+      assert.ok(sent.every((packet) => packet[2] === 0x00));
+    } else {
+      const dongleFirmware = sent.filter((packet) =>
+        packet[2] === 0x00 && packet[4] === 0x00 && packet[5] === 0x81);
+      const lightReads = sent.filter((packet) => packet[4] === 2 && packet[5] === 0x80);
+      assert.ok(lightReads.every((packet) => packet[2] === (productId === 0x0084 ? 1 : 0)));
+      const mouseRequests = sent.filter((packet) => !dongleFirmware.includes(packet) && !lightReads.includes(packet));
+      assert.equal(dongleFirmware.length, 1);
+      assert.ok(mouseRequests.length > 0);
+      assert.ok(mouseRequests.every((packet) => packet[2] === 0x02));
+    }
+  }
+});
+
 /**
  * Byte-for-byte replay of a real Lamzu Inca 8K on its receiver, captured with
  * hidapi on Windows 11 (docs/lamzu-inca-testing.md). Keyed by target:page:
@@ -413,10 +466,27 @@ test("each Inca connection gets the rate list that connection actually offers", 
   assert.equal(LAMZU_INCA_PRODUCTS.get(0x0010)?.wireless, true);
 });
 
-test("the Inca's DFU bootloader identities are not offered as mice", () => {
-  // 0x000a is the mouse's flashing identity and 0x0002 the dongle's; neither
-  // speaks the config protocol, so a picker entry for them would be dead.
-  for (const bootloader of [0x000a, 0x0002]) {
+test("the Paro Aurora carries the same split as the Inca, from the same vendor table", () => {
+  // Issue #167: Lamzu's own env-models.json gives the Paro Aurora PIDWired
+  // 0x0007, _1KDongle 0x000d and _8KDongle 0x000e, with the same
+  // IsNewProtocol/IsCompx flags and DPIMax as the Inca. None exercised on
+  // hardware yet, so the catalog is the only claim.
+  assert.equal(lamzuProduct(LAMZU_INCA_VENDOR_ID, 0x0007)?.model, "Paro Aurora");
+  assert.equal(lamzuProduct(LAMZU_INCA_VENDOR_ID, 0x000d)?.model, "Paro Aurora");
+  assert.equal(lamzuProduct(LAMZU_INCA_VENDOR_ID, 0x000e)?.model, "Paro Aurora");
+  assert.deepEqual(LAMZU_INCA_PRODUCTS.get(0x0007)?.pollingRates, [125, 250, 500, 1000]);
+  assert.deepEqual(LAMZU_INCA_PRODUCTS.get(0x000d)?.pollingRates, [125, 250, 500, 1000]);
+  assert.deepEqual(LAMZU_INCA_PRODUCTS.get(0x000e)?.pollingRates, [500, 1000, 2000, 4000, 8000]);
+  assert.equal(LAMZU_INCA_PRODUCTS.get(0x0007)?.wireless, false);
+  assert.equal(LAMZU_INCA_PRODUCTS.get(0x000d)?.wireless, true);
+  assert.equal(LAMZU_INCA_PRODUCTS.get(0x000e)?.wireless, true);
+});
+
+test("the Inca's and Paro Aurora's DFU bootloader identities are not offered as mice", () => {
+  // 0x000a is the Inca mouse's flashing identity and 0x0002 the shared dongle's;
+  // the Paro adds 0x0008 (mouse) and 0x0004 (1K dongle). None speaks the config
+  // protocol, so a picker entry for one would be dead.
+  for (const bootloader of [0x000a, 0x0002, 0x0008, 0x0004]) {
     assert.equal(LAMZU_INCA_PRODUCTS.has(bootloader), false);
     assert.equal(LamzuHidClient.isSupported(fakeInca(bootloader)), false);
   }

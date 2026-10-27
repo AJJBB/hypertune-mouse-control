@@ -7,6 +7,8 @@ import {
   LAMZU_ATLANTIS_VENDOR_ID,
 } from "@openmouse/protocol/lamzu";
 import { LamzuAtlantisHidClient } from "./hid.ts";
+import { NOIR_M1_NEX_PRODUCT_ID, NoirM1NexHidClient } from "../noir/m1-nex-hid.ts";
+import { createSupportedClient, deviceBrand } from "../registry.ts";
 
 function collection(
   usagePage: number,
@@ -45,15 +47,16 @@ const device = (
 ): HIDDevice => ({ vendorId, productId, productName: "LAMZU Atlantis Pro", collections } as unknown as HIDDevice);
 
 test("the wired mouse and every catalogued receiver are claimed", () => {
-  for (const productId of [0xf50f, 0xf50d, 0xf510, 0xf517]) {
+  for (const productId of [0xf50f, 0xf50d, 0xf510]) {
     assert.ok(LamzuAtlantisHidClient.isSupported(device(LAMZU_ATLANTIS_VENDOR_ID, productId)));
   }
 });
 
 test("other devices on CompX's shared vendor id are left alone", () => {
   // VXE R1 SE+ transports, a Teevolution Terra Pro, a VGN Dragonfly F2 Master+
-  // and Pulsar's own 4K receiver all enumerate under 0x3554.
-  for (const productId of [0xf58e, 0xf58f, 0xf520, 0xfb56, 0x0002]) {
+  // and Pulsar's own 4K receiver all enumerate under 0x3554, as do the Scyrox
+  // V8S and its dongle, which have their own registered client.
+  for (const productId of [0xf58e, 0xf58f, 0xf520, 0xfb56, 0x0002, 0xf515, 0xf517]) {
     assert.equal(LamzuAtlantisHidClient.isSupported(device(LAMZU_ATLANTIS_VENDOR_ID, productId)), false);
   }
 });
@@ -85,6 +88,19 @@ test("a nested config collection is found", () => {
     }),
   ];
   assert.ok(LamzuAtlantisHidClient.isSupported(device(LAMZU_ATLANTIS_VENDOR_ID, 0xf50f, nested)));
+});
+
+test("Noir M1-NEX is claimed only on its exact CompX PID and report-8 config collection", () => {
+  assert.ok(NoirM1NexHidClient.isSupported(device(LAMZU_ATLANTIS_VENDOR_ID, NOIR_M1_NEX_PRODUCT_ID)));
+  assert.equal(NoirM1NexHidClient.isSupported(device(0x1234, NOIR_M1_NEX_PRODUCT_ID)), false);
+  assert.equal(NoirM1NexHidClient.isSupported(device(LAMZU_ATLANTIS_VENDOR_ID, 0xf50f)), false);
+  assert.equal(NoirM1NexHidClient.isSupported(device(LAMZU_ATLANTIS_VENDOR_ID, NOIR_M1_NEX_PRODUCT_ID, [])), false);
+});
+
+test("the protocol registry creates M1-NEX as Noir Gear, not Lamzu", () => {
+  const client = createSupportedClient(device(LAMZU_ATLANTIS_VENDOR_ID, NOIR_M1_NEX_PRODUCT_ID));
+  assert.ok(client instanceof NoirM1NexHidClient);
+  assert.equal(deviceBrand(client), "Noir Gear");
 });
 
 test("the receivers report themselves as wireless and the cable does not", () => {

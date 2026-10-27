@@ -24,6 +24,7 @@ import {
   isWiredHidppConnection,
   supportsLiveLiftOffControl,
 } from "./hidpp.ts";
+import { factoryDirectoryForFormat, factoryProfileForFormat } from "./onboard-profiles.ts";
 
 const G402 = 0xc07e;
 const G403_HERO = 0xc08f;
@@ -599,4 +600,199 @@ test("HITS press stream start replays G HUB's captured arm sequence, stop clears
   const short = internals.device.probed.filter((p) => p.data.length === 6 && p.data[1] === 0x16 && p.data[2] >> 4 === 3);
   assert.deepEqual(Array.from(short[0].data.slice(3, 6)), [0x01, 0x3c, 0x00]);
   assert.deepEqual(Array.from(short[1].data.slice(3, 6)), [0x00, 0x00, 0x00]);
+});
+
+/**
+ * A format 8 mouse whose onboard memory is a map of 255-byte sectors, driven by
+ * the same HID++ 0x8100 functions the driver uses: info, mode, current profile,
+ * memory read, and the address/data/end write sequence. Starts blank (every
+ * sector erased) like a mouse G HUB has never linked.
+ */
+function onboardMemoryMouse(options: { ignoreWrites?: boolean; profileCount?: number; preload?: Record<number, Uint8Array> } = {}) {
+  const FEATURE_INDEX = 0x21;
+  const memory = new Map<number, Uint8Array>(Object.entries(options.preload ?? {}).map(([sector, bytes]) => [Number(sector), bytes.slice()]));
+  const state = { mode: 0x01, current: 0x0001, writes: 0 };
+  let pending: { sector: number; length: number; bytes: number[] } | null = null;
+  const { client, device } = harness(0xc54d, { 1: "mouse" });
+  const base = hidppResponder({ 1: "mouse" });
+  const sectorBytes = (sector: number) => memory.get(sector) ?? new Uint8Array(255).fill(0xff);
+  device.onRequest = (request) => {
+    const deviceIndex = request[0];
+    const featureId = (request[3] << 8) | request[4];
+    if (request[1] === 0x00 && featureId === 0x8100) return successReply(deviceIndex, 0x00, 0x00, [FEATURE_INDEX, 0x00, 0x00]);
+    if (request[1] !== FEATURE_INDEX) return base(request);
+    const fn = request[2] >> 4;
+    const params = Array.from(request.slice(3));
+    if (fn === 0) return successReply(deviceIndex, FEATURE_INDEX, 0x00, [0x01, 0x08, 0x00, options.profileCount ?? 0x05, 0x00, 0x06, 0x05, 0x00, 0xff]);
+    if (fn === 1) { state.mode = params[0]; return successReply(deviceIndex, FEATURE_INDEX, 0x10); }
+    if (fn === 2) return successReply(deviceIndex, FEATURE_INDEX, 0x20, [state.mode]);
+    if (fn === 3) { state.current = (params[0] << 8) | params[1]; return successReply(deviceIndex, FEATURE_INDEX, 0x30); }
+    if (fn === 4) return successReply(deviceIndex, FEATURE_INDEX, 0x40, [state.current >> 8, state.current & 0xff]);
+    if (fn === 5) {
+      const sector = (params[0] << 8) | params[1];
+      const offset = (params[2] << 8) | params[3];
+      return successReply(deviceIndex, FEATURE_INDEX, 0x50, Array.from(sectorBytes(sector).slice(offset, offset + 16)));
+    }
+    if (fn === 6) {
+      pending = { sector: (params[0] << 8) | params[1], length: (params[4] << 8) | params[5], bytes: [] };
+      return successReply(deviceIndex, FEATURE_INDEX, 0x60);
+    }
+    if (fn === 7 && pending) { pending.bytes.push(...params.slice(0, 16)); return successReply(deviceIndex, FEATURE_INDEX, 0x70); }
+    if (fn === 8 && pending) {
+      if (!options.ignoreWrites) memory.set(pending.sector, Uint8Array.from(pending.bytes.slice(0, pending.length)));
+      state.writes += 1;
+      pending = null;
+      return successReply(deviceIndex, FEATURE_INDEX, 0x80);
+    }
+    return null;
+  };
+  return { client, memory, state };
+}
+
+test("initialising a blank format 8 mouse writes the factory sectors, then the directory, then selects profile 1", async () => {
+  const { client, memory, state } = onboardMemoryMouse();
+  await resolveIndex(client);
+  await client.initializeBlankOnboardProfiles();
+
+  const factory = factoryProfileForFormat(8, 255);
+  const directory = factoryDirectoryForFormat(8, 255);
+  assert.ok(factory && directory);
+  for (const sector of [1, 2, 3, 4, 5]) assert.deepEqual([...memory.get(sector)!], [...factory], `sector ${sector}`);
+  assert.deepEqual([...memory.get(0)!], [...directory]);
+  assert.equal(state.current, 0x0001);
+  assert.equal(state.mode, 0x01, "left in onboard mode");
+  assert.equal(state.writes, 6);
+});
+
+test("initialising refuses a mouse that already has profiles and writes nothing", async () => {
+  const directory = factoryDirectoryForFormat(8, 255)!;
+  const { client, state } = onboardMemoryMouse({ preload: { 0: directory } });
+  await resolveIndex(client);
+  await assert.rejects(client.initializeBlankOnboardProfiles(), /already has onboard profiles/);
+  assert.equal(state.writes, 0);
+  assert.equal(state.mode, 0x01);
+});
+
+test("initialising leaves the directory blank and the mouse in onboard mode when a write does not stick", async () => {
+  const { client, memory, state } = onboardMemoryMouse({ ignoreWrites: true });
+  await resolveIndex(client);
+  await assert.rejects(client.initializeBlankOnboardProfiles(), /did not confirm/);
+  assert.equal(memory.has(0), false, "directory never written");
+  assert.equal(state.mode, 0x01, "not stranded in host mode");
+});
+
+test("initialising refuses a mouse that reports fewer profiles than the captured layout and writes nothing", async () => {
+  const { client, state } = onboardMemoryMouse({ profileCount: 3 });
+  await resolveIndex(client);
+  await assert.rejects(client.initializeBlankOnboardProfiles(), /reports 3 profiles/);
+  assert.equal(state.writes, 0);
+  assert.equal(state.mode, 0x01);
+});
+
+test("LightForce switch mode is refused on a HITS mouse and nothing is sent to Mode Status", async () => {
+  const { client } = analogButtonsMouse();
+  await resolveIndex(client);
+  const device = (client as unknown as { device: { probed: Array<{ data: Uint8Array }> } }).device;
+  await assert.rejects(client.setLightforceSwitchMode("Hybrid"), /no LightForce switches/);
+  const askedForModeStatus = device.probed.some(({ data }) => data[1] === 0x00 && ((data[3] << 8) | data[4]) === 0x8090);
+  assert.equal(askedForModeStatus, false, "the mode-status feature is never looked up, let alone written");
+});
+
+test("a Lightspeed Superlight 2 reads the wireless 0x8061 list, not the cable's 1 kHz list", async () => {
+  // Issue #224. Function 0x10 with connection 0 is the wired mask (bits 0-3,
+  // through 1000 Hz). Lightspeed is connection 1 and includes 8000 Hz (bit 6).
+  const FEATURE_INDEX = 0x0b;
+  const { client, device } = harness(LIGHTSPEED_RECEIVER, { 1: "mouse" });
+  await resolveIndex(client);
+  const functions: number[] = [];
+  device.onRequest = (request) => {
+    if (request[1] !== FEATURE_INDEX) return null;
+    const functionId = request[2] & 0xf0;
+    const connection = request[3];
+    functions.push(functionId);
+    if (functionId === 0x20) {
+      return successReply(request[0], FEATURE_INDEX, functionId, [connection === 0x01 ? 6 : 3]);
+    }
+    const mask = connection === 0x01 ? 0x007f : 0x000f;
+    return successReply(request[0], FEATURE_INDEX, functionId, [(mask >> 8) & 0xff, mask & 0xff]);
+  };
+  const driver = client as unknown as {
+    wiredConnection: boolean;
+    readSupportedPollingRates(index: number): Promise<number[]>;
+    readPollingRate(index: number): Promise<number>;
+  };
+
+  driver.wiredConnection = false;
+  assert.deepEqual(
+    await driver.readSupportedPollingRates(FEATURE_INDEX),
+    [125, 250, 500, 1000, 2000, 4000, 8000],
+  );
+  assert.equal(await driver.readPollingRate(FEATURE_INDEX), 8000);
+  driver.wiredConnection = true;
+  assert.deepEqual(await driver.readSupportedPollingRates(FEATURE_INDEX), [125, 250, 500, 1000]);
+  assert.deepEqual(functions, [0x10, 0x20, 0x10]);
+});
+
+test("0x8061 function 0 supplies the Lightspeed rates when function 0x10 stays at 1000 Hz", async () => {
+  const FEATURE_INDEX = 0x0b;
+  const { client, device } = harness(LIGHTSPEED_RECEIVER, { 1: "mouse" });
+  await resolveIndex(client);
+  device.onRequest = (request) => {
+    if (request[1] !== FEATURE_INDEX) return null;
+    const functionId = request[2] & 0xf0;
+    if (functionId === 0x10) {
+      return successReply(request[0], FEATURE_INDEX, functionId, [0x00, 0x0f]);
+    }
+    if (functionId === 0x00 && request[3] === 0x01) {
+      return successReply(request[0], FEATURE_INDEX, functionId, [0x00, 0x7f]);
+    }
+    return new Uint8Array([request[0], 0xff, FEATURE_INDEX, request[2], 0x05]);
+  };
+  const driver = client as unknown as {
+    wiredConnection: boolean;
+    readSupportedPollingRates(index: number): Promise<number[]>;
+  };
+  driver.wiredConnection = false;
+  assert.deepEqual(
+    await driver.readSupportedPollingRates(FEATURE_INDEX),
+    [125, 250, 500, 1000, 2000, 4000, 8000],
+  );
+});
+
+// --- Receiver firmware register (HID++ 1.0 register 0xF1) -------------------
+// Live PRO LIGHTSPEED receiver replies stayed [1, 7, 2] and [2, 0, 17]
+// across a G HUB update from 14.3.19 to 14.4.20. The bytes are useful
+// diagnostics, but do not directly encode the receiver package version.
+
+test("receiver firmware register queries MCU2 without inventing a version", async () => {
+  const device = new FakeHidDevice(LIGHTSPEED_RECEIVER, "PRO LIGHTSPEED Receiver", USB_HIDPP_COLLECTIONS);
+  device.onRequest = (request) => {
+    if (request[0] === 0xff && request[1] === 0x81 && request[2] === 0xf1 && request[3] === 2) {
+      return new Uint8Array([0xff, 0x81, 0xf1, 2, 0, 17]);
+    }
+    return null;
+  };
+  const client = new LogitechHidppClient(device as unknown as HIDDevice);
+  const result = await client.readReceiverFirmware();
+  assert.equal(result.version, null);
+  assert.deepEqual(result.raw, [2, 0, 17]);
+  const sent = device.probed.at(-1);
+  assert.deepEqual([...(sent?.data ?? [])], [0xff, 0x81, 0xf1, 2, 0, 0]);
+});
+
+test("receiver firmware register can query MCU1 independently", async () => {
+  const device = new FakeHidDevice(LIGHTSPEED_RECEIVER, "PRO LIGHTSPEED Receiver", USB_HIDPP_COLLECTIONS);
+  device.onRequest = () => new Uint8Array([0xff, 0x81, 0xf1, 1, 7, 2]);
+  const client = new LogitechHidppClient(device as unknown as HIDDevice);
+  const result = await client.readReceiverFirmware(1);
+  assert.equal(result.version, null);
+  assert.deepEqual(result.raw, [1, 7, 2]);
+  assert.deepEqual([...(device.probed.at(-1)?.data ?? [])], [0xff, 0x81, 0xf1, 1, 0, 0]);
+});
+
+test("receiver firmware register rejects the HID++ error promptly", async () => {
+  const device = new FakeHidDevice(LIGHTSPEED_RECEIVER, "PRO LIGHTSPEED Receiver", USB_HIDPP_COLLECTIONS);
+  device.onRequest = () => new Uint8Array([0xff, 0x8f, 0x81, 0xf1, 0x03, 0]);
+  const client = new LogitechHidppClient(device as unknown as HIDDevice);
+  await assert.rejects(client.readReceiverFirmware(), /HID\+\+ error 0x3/);
 });

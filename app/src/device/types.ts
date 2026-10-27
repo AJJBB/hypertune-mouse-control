@@ -6,7 +6,7 @@ import type { InterfacePreferences } from "../interface-preferences";
 import type { PreviewMode } from "../preview-modes";
 import type { DriverTraits } from "./traits";
 
-export type WorkspaceTab = "overview" | "performance" | "lighting" | "buttons" | "profiles" | "advanced";
+export type WorkspaceTab = "overview" | "performance" | "lighting" | "buttons" | "profiles" | "advanced" | "test";
 
 export type LiftOffLevel = NonNullable<MouseStatus["liftOffDistance"]>;
 export type PulsarToggleSetting =
@@ -152,6 +152,8 @@ export interface ControlSnapshot {
   reportProblemOpen: boolean;
   /** True when a Razer mouse was picked in the plain web build (no native bridge); shows the web-beta notice. */
   razerWebNoticeOpen: boolean;
+  /** True after a connect attempt fails (not a wrong-device pick); the integrated shell shows a "Couldn't connect" modal. */
+  connectErrorOpen: boolean;
   workspaceTab: WorkspaceTab;
   /** "list" shows the welcome/cross-device picker, "device" shows the opened dashboard. */
   deviceView: "list" | "device";

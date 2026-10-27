@@ -27,6 +27,9 @@ Thumbs.db
 # git bundle artifact
 *.bundle
 
+# secrets — never commit
+figma-token.txt
+
 # local-only directories and docs (not part of the published codebase)
 hypertune-mouse-control/
 Hypertune-Build-Brief.md

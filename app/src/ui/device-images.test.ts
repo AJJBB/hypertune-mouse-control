@@ -207,10 +207,35 @@ test("Finalmouse Starlight-12 / ULX resolves by name", () => {
 
 test("test-needed and unsupported models are not given new artwork", () => {
   assert.equal(deviceImage(null, "Razer Basilisk V3"), CDN + "unknown-device.png");
-  assert.equal(deviceImage(null, "Attack Shark X3"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "Endgame Gear OP1w 4K v2"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "VGN Dragonfly R1 Pro"), CDN + "unknown-device.png");
   assert.equal(deviceImage(null, "Razer Viper 8KHz"), CDN + "unknown-device.png");
+});
+
+test("models synced from upstream OpenMouse resolve to their own renders", () => {
+  // Art committed under public/devices/.
+  assert.equal(deviceImage(null, "Attack Shark X3"), CDN + "attackshark-x3.png");
+  assert.equal(deviceImage(null, "Logitech PRO X3 SUPERSTRIKE"), CDN + "logitech-pro-x3-superstrike.png");
+  assert.equal(deviceImage(null, "DeathAdder V3 HyperSpeed"), CDN + "razer-deathadder-v3-hyperspeed.png");
+  assert.equal(deviceImage(null, "Finalmouse Starlight X"), CDN + "finalmouse-slx.png");
+  assert.equal(deviceImage(null, "Finalmouse SLX"), CDN + "finalmouse-slx.png");
+  assert.equal(deviceImage(null, "ROG Harpe Ace Aim Lab Edition"), CDN + "asus-rog-harpe-ace-aim-lab.png");
+  assert.equal(deviceImage(null, "Delux M800 Mini"), CDN + "delux-m800-mini.png");
+  assert.equal(deviceImage(null, "M800 Pro"), CDN + "delux-m800-mini.png");
+  // X3 superstrike must not be caught by the X2 superstrike render, and vice versa.
+  assert.equal(deviceImage(null, "PRO X 2 Superstrike"), CDN + "logitech-pro-x2-superstrike.png");
+  // The plain DeathAdder V3 and the V3 Pro are unaffected by the HyperSpeed rule.
+  assert.equal(deviceImage(null, "DeathAdder V3"), CDN + "razer-deathadder-v3.png");
+  assert.equal(deviceImage(null, "DeathAdder V3 Pro"), CDN + "unknown-device.png");
+
+  // Art pending upload; the resolver still maps the name and each <img> falls
+  // back to the placeholder on load until the render is committed.
+  assert.equal(deviceImage(null, "IPI Float 88"), CDN + "ipi-float-88.png");
+  assert.equal(deviceImage(null, "Cooler Master MM711"), CDN + "coolermaster-mm711.png");
+  assert.equal(deviceImage(null, "Noir E1"), CDN + "noir-e1.png");
+  assert.equal(deviceImage(null, "Noir S1"), CDN + "noir-s1.png");
+  assert.equal(deviceImage(null, "Noir M1 Nex"), CDN + "noir-m1-nex.png");
+  assert.equal(deviceImage(null, "Noir M2 Nex"), CDN + "noir-m2-nex.png");
 });
 
 test("a mouse behind a shared WLMouse receiver resolves by name", () => {

@@ -31,6 +31,10 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   // few lines down covers every other Superlight generation.
   if (/\bpro\s*x\s*wireless\b/i.test(displayName)) return "logitech-pro-x-superlight-2c.png";
   if (/mx\s*master\s*4/i.test(displayName)) return "unknown-device.png";
+  // PRO X3 SUPERSTRIKE is a different shell revision from the X2; must run
+  // before the plain superstrike rule, and requires "superstrike" in the name
+  // so Attack Shark X3 never lands here.
+  if (/superstrike/i.test(displayName) && /x\s*3/i.test(displayName)) return "logitech-pro-x3-superstrike.png";
   if (/superstrike/i.test(displayName)) return "logitech-pro-x2-superstrike.png";
   // The G Pro X Superlight 2 reports its HID++ name as "PRO X 2" (not
   // "Superlight"), so it missed every rule and fell to the placeholder. Reuse the
@@ -56,6 +60,7 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   // R2 shares PID 0x402D with the Lingbao M5 Pro, so it can only be told apart
   // by the name the gearhub driver reads back from the device id.
   if (/\battack\s*shark\s*r2\b/i.test(displayName)) return "attackshark-r2.png";
+  if (/\battack\s*shark\s*x3\b/i.test(displayName)) return "attackshark-x3.png";
   if (/\bm[23]k\b/i.test(displayName)) return "zaunkoenig-m3k.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "logitech-mx-master-3s.png";
   if (/\bterra\s*pro\b/i.test(displayName)) return "teevolution-terra-pro.png";
@@ -64,6 +69,21 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   // Corsair NIGHTSWORD RGB has no product render yet; resolves to the generic
   // placeholder until art is uploaded (then add ["1b1c:1b5c", ...] above).
   if (/\bnightsword\b/i.test(displayName)) return "unknown-device.png";
+  // Models synced from upstream OpenMouse. Art for the Noir family, the IPI
+  // Float 88 and the Cooler Master MM711 is not committed yet, so those resolve
+  // to the local filename and fall back to the placeholder on load (every
+  // <img> has an onError handler) until the render is added under
+  // public/devices/.
+  if (/\bharpe\s*ace\s*aim\s*lab\b/i.test(displayName)) return "asus-rog-harpe-ace-aim-lab.png";
+  if (/\bdelux\b.*\bm800/i.test(displayName) || /\bm800\s*(mini|pro)?\b/i.test(displayName)) {
+    return "delux-m800-mini.png";
+  }
+  if (/\bfloat\s*88\b/i.test(displayName)) return "ipi-float-88.png";
+  if (/\bmm711\b/i.test(displayName)) return "coolermaster-mm711.png";
+  if (/\bnoir\s*e1\b/i.test(displayName)) return "noir-e1.png";
+  if (/\bnoir\s*s1\b/i.test(displayName)) return "noir-s1.png";
+  if (/\bm1\s*[-_]?\s*nex\b/i.test(displayName)) return "noir-m1-nex.png";
+  if (/m2\s*[-_]?\s*nex/i.test(displayName)) return "noir-m2-nex.png";
   // Newer supported-model artwork resolved from the reported product name. These
   // run after the shared-receiver checks above but before the Pulsar/unknown
   // catch-alls. Test-needed (likely) models are deliberately left out.
@@ -82,6 +102,7 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   if (/\bmx\s*anywhere\s*3\b/i.test(displayName)) return "logitech-mx-anywhere-3.png";
   if (/\bmx\s*ergo\b/i.test(displayName)) return "logitech-mx-ergo-s.png";
   if (/\bdeathadder\s*v4\b/i.test(displayName)) return "razer-deathadder-v4-pro.png";
+  if (/\bdeathadder\s*v3\s*hyperspeed\b/i.test(displayName)) return "razer-deathadder-v3-hyperspeed.png";
   if (/\bdeathadder\s*v3\b(?!\s*pro\b)/i.test(displayName)) return "razer-deathadder-v3.png";
   if (/\bdeathadder\s*v2\b(?!\s*x\s*hyperspeed\b)/i.test(displayName)) return "razer-deathadder-v2.png";
   if (/\bdeathadder\s*essential\b/i.test(displayName)) return "razer-deathadder-v2.png";
@@ -140,6 +161,9 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   if (/\bzero\s*39\s*pro\b/i.test(displayName)) return "incott-zero-39-pro.png";
   if (/\bzero\s*39\b/i.test(displayName)) return "incott-zero-39.png";
   if (/\bkeychron\s*m6\b/i.test(displayName)) return "keychron-m6.png";
+  // Starlight X / SLX gets its own render; must precede the broad finalmouse
+  // rule below or "Starlight X" is swallowed into the ULX art.
+  if (/\bstarlight\s*x\b|\bslx\b/i.test(displayName)) return "finalmouse-slx.png";
   if (/\b(finalmouse|starlight|ulx)\b/i.test(displayName)) return "finalmouse-ulx.png";
   if (/\borbital\b/i.test(displayName)) return "unknown-device.png";
   if (/\bmoddo/i.test(displayName)) return "unknown-device.png";

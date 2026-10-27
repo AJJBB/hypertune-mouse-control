@@ -34,7 +34,7 @@ const PULSAR: MouseStatus = {
   connectionType: "Wireless",
   connectionDetail: "2.4 GHz receiver",
   dongleLedEnabled: true,
-  signalStrength: 82,
+  signalStrength: 3,
   motionSync: true,
   debounceMs: 4,
   sleepTimeout: 30,
@@ -51,6 +51,18 @@ const PULSAR_PRO: MouseStatus = {
   wheelAcceleration: false,
   pollingRateHz: 4000,
   supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+  buttonMappings: {
+    "Left button": "Left click",
+    "Side button, front": "Left click",
+    "Side button, rear": "Space",
+    "Right button": "Right click",
+    "Scroll Wheel": "Left click",
+  },
+  buttonOptions: [
+    "Left click", "Right click", "Middle click", "Back", "Forward",
+    "DPI loop", "DPI +", "DPI −", "Scroll up", "Scroll down", "Space", "Disabled",
+  ],
+  fixedButtons: ["Left button"],
   firmware: ["2.01.03"],
 };
 

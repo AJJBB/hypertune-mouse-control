@@ -277,6 +277,9 @@ let reportProblemOpen = false;
 // native bridge isn't present so Razer can't be driven. Shows an explanatory
 // notice instead of a dead-end connection error.
 let razerWebNoticeOpen = false;
+// Set when a connect attempt fails (not a wrong-device pick). The integrated v2
+// shell renders a "Couldn't connect" modal from it; the standalone uses a toast.
+let connectErrorOpen = false;
 let activeWorkspaceTab: WorkspaceTab = "overview";
 let deviceListView: "list" | "device" = "list";
 let interfacePreferences = loadInterfacePreferences(localStorage);
@@ -425,6 +428,7 @@ function buildSnapshot(): ControlSnapshot {
     interfaceSettingsOpen,
     reportProblemOpen,
     razerWebNoticeOpen,
+    connectErrorOpen,
     workspaceTab: activeWorkspaceTab,
     deviceView: deviceListView,
     dpiOptions,
@@ -1347,6 +1351,11 @@ export function closeRazerWebNotice(): void {
   emit();
 }
 
+export function closeConnectError(): void {
+  connectErrorOpen = false;
+  emit();
+}
+
 export function setWorkspaceTab(tab: WorkspaceTab): void {
   activeWorkspaceTab = tab;
   emit();
@@ -2210,6 +2219,7 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
 
 export async function connect(): Promise<void> {
   setConnectionButtons(true, "Connecting…");
+  connectErrorOpen = false;
   deviceStatusText = st("ctl.requesting");
   readStatus = st("ctl.choosePrompt");
   emit();
@@ -2236,6 +2246,7 @@ export async function connect(): Promise<void> {
     deviceStatusText = wrongDevice ? st("ctl.notMouse") : st("ctl.connFailed");
     readStatus = message;
     toastForError(wrongDevice ? "Not a mouse" : "Connection failed", error);
+    if (!wrongDevice) connectErrorOpen = true;
   } finally {
     setConnectionButtons(false, "Add device");
   }
@@ -2480,7 +2491,15 @@ export function applyDpiStageValue(stage: number, rawDpi: number): void {
       if ((status.activeDpiStage ?? 0) === stage) status.dpi = dpi;
     },
     apply: async () => {
-      await requireClientMethod("setDpiStageValue", "DPI stage value").setDpiStageValue(stage, dpi);
+      // The client union now includes drivers whose setDpiStageValue takes a
+      // branded DPI-preset number (the new SteelSeries Gen 2 / Rival families),
+      // so the union's parameter type intersects to a brand a plain number
+      // can't satisfy. dpi is already validated against dpiOptions above; cast
+      // to the plain method shape, matching the pattern used elsewhere here.
+      const client = requireClientMethod("setDpiStageValue", "DPI stage value") as unknown as {
+        setDpiStageValue: (stage: number, dpi: number) => Promise<unknown>;
+      };
+      await client.setDpiStageValue(stage, dpi);
     },
   });
 }

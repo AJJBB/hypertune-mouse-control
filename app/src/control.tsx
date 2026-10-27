@@ -9,6 +9,7 @@ import { installNativeHid } from "./native-hid";
 import { mountOfflineBanner } from "./offline-banner";
 import { registerServiceWorker } from "./register-sw";
 import { MIN_HEIGHT, MIN_WIDTH, useViewportTooSmall } from "./app/useViewportTooSmall";
+import { initAppMode } from "./app-mode";
 
 // Early theme bootstrap — runs before the app renders so there's no flash of the
 // wrong color scheme. This used to be an inline <script> in index.html; moving it
@@ -25,6 +26,11 @@ import { MIN_HEIGHT, MIN_WIDTH, useViewportTooSmall } from "./app/useViewportToo
     /* localStorage/matchMedia unavailable — the app sets the theme on mount anyway */
   }
 })();
+
+// Resolve standalone vs. integrated (native-shell) mode and stamp it on <html>
+// before first paint, so the v2.0 integrated styles apply with no flash. The
+// shell appends `?app=1`; a plain browser visit stays standalone. See app-mode.ts.
+initAppMode();
 
 const controlApp = document.querySelector<HTMLDivElement>("#control-app");
 

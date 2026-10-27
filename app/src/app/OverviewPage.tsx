@@ -353,6 +353,8 @@ interface DashboardSections {
   buttons: ReactNode[];
   profiles: ReactNode[];
   advanced: ReactNode[];
+  /** Mouse Test is an integrated-only section; the standalone never lists it. */
+  test: ReactNode[];
 }
 
 /** Every configurable card for the connected device, grouped into the same
@@ -439,7 +441,7 @@ function computeDashboardSections(snapshot: ControlSnapshot): DashboardSections 
       ]
     : [...buttons, ...advancedCards];
 
-  return { performance, lighting, buttons: [], profiles, advanced };
+  return { performance, lighting, buttons: [], profiles, advanced, test: [] };
 }
 
 /** Which tabs have anything to show, in display order. "overview" always
@@ -658,6 +660,7 @@ const TAB_ICON: Record<WorkspaceTab, LucideIcon> = {
   buttons: MousePointerClick,
   profiles: Layers,
   advanced: Settings2,
+  test: Gauge,
 };
 
 /** Compact device summary pinned to the sidebar foot — name, live dot, battery. */

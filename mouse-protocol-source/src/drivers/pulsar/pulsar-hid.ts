@@ -23,6 +23,7 @@ import {
 import { ATK_COMPX_PRODUCT_IDS } from "../atk/products.ts";
 import { GRAVASTAR_PRODUCT_IDS } from "../gravastar/products.ts";
 import { LAMZU_ATLANTIS_PRODUCTS } from "@openmouse/protocol/lamzu";
+import { SCYROX_PRODUCT_IDS } from "@openmouse/protocol/scyrox";
 
 // The Pulsar 4K Wireless Receiver is sold as a Pulsar product but enumerates
 // under the shared Teevolution/VGN vendor id (0x3554) and speaks the same
@@ -33,9 +34,11 @@ const VGN_VENDOR_ID = 0x3554;
 const CLAIMED_VGN_PRODUCT_IDS: ReadonlySet<number> = new Set([
   0xf520, 0xf523, 0xf5bb, 0xf522, // Teevolution (Terra Pro family)
   0xfb56, 0xfb57, // VGN Dragonfly F2 Master+
+  0xf500, // Noir Gear M1-NEX has its own registered report-8 client
   ...ATK_COMPX_PRODUCT_IDS, // VXE wired units
   ...LAMZU_ATLANTIS_PRODUCTS.keys(), // Lamzu Atlantis generation
   ...GRAVASTAR_PRODUCT_IDS, // GravaStarHidClient, a subclass of this client
+  ...SCYROX_PRODUCT_IDS, // Scyrox V8S and its Turbo 8K dongle
 ]);
 const PULSAR_POLLING_RATES = [125, 250, 500, 1000, 2000, 4000, 8000];
 

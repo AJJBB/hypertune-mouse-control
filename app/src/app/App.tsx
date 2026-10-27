@@ -9,6 +9,11 @@ import { ReportProblemDialog } from "./ReportProblemDialog";
 import { ShareProfileDialog } from "./ShareProfileDialog";
 import { ToastHost } from "./Toasts";
 import { useControl } from "./useControl";
+import { isIntegratedMode } from "../app-mode";
+import { DeviceGrid } from "./integrated/DeviceGrid";
+import { DeviceDetail } from "./integrated/DeviceDetail";
+import { ConnectNoticeDialog } from "./integrated/ConnectNoticeDialog";
+import { ToolsHub } from "./integrated/ToolsHub";
 
 /** This renders as a single embeddable panel — a "Mouse" tab's worth of
     content, sections included — not a standalone app shell. It brings no
@@ -20,6 +25,11 @@ export function App(): ReactNode {
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const [artworkReqOpen, setArtworkReqOpen] = useState(false);
   const [artworkDeviceName, setArtworkDeviceName] = useState("");
+  // ?hub=1 renders the Tools landing in front of the Mouse Control pane (in the
+  // real shell the native app draws this and opens us into Mouse Tools).
+  const [showHub, setShowHub] = useState(() => {
+    try { return new URLSearchParams(window.location.search).has("hub"); } catch { return false; }
+  });
   const { preferences, status } = snapshot;
   const locale = preferences.locale;
 
@@ -34,6 +44,44 @@ export function App(): ReactNode {
   function openArtworkRequest(): void {
     if (snapshot.status?.name) setArtworkDeviceName(snapshot.status.name);
     setArtworkReqOpen(true);
+  }
+
+  const dialogs = (
+    <>
+      <ArtworkRequestDialog open={artworkReqOpen} onClose={() => setArtworkReqOpen(false)} locale={locale} deviceName={artworkDeviceName} />
+      <ReportProblemDialog open={snapshot.reportProblemOpen} onClose={() => control.closeReportProblem()} deviceName={snapshot.status?.name ?? ""} />
+      <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
+      <ToastHost toasts={snapshot.toasts} locale={locale} />
+    </>
+  );
+
+  // Integrated mode (native HyperTune shell, ?app=1): content pane only — the
+  // native app draws the window, sidebar and "Tools / Mouse Control" breadcrumb.
+  if (isIntegratedMode()) {
+    return (
+      <div className="htv2-root" data-interface-theme={interfaceThemeSlug(preferences.theme)}>
+        {showHub ? (
+          <div className="htv2-content"><ToolsHub snapshot={snapshot} onOpenMouse={() => setShowHub(false)} /></div>
+        ) : snapshot.deviceView === "device" && snapshot.status !== null ? (
+          <div className="htv2-content"><DeviceDetail snapshot={snapshot} onShareProfile={() => setShareProfileOpen(true)} /></div>
+        ) : (
+          <div className="htv2-content"><DeviceGrid snapshot={snapshot} /></div>
+        )}
+        <PendingBar snapshot={snapshot} />
+        <ConnectNoticeDialog
+          variant="razer-web"
+          open={snapshot.razerWebNoticeOpen}
+          onClose={() => control.closeRazerWebNotice()}
+        />
+        <ConnectNoticeDialog
+          variant="error"
+          open={snapshot.connectErrorOpen}
+          onClose={() => control.closeConnectError()}
+          onRetry={() => { control.closeConnectError(); void control.connect(); }}
+        />
+        {dialogs}
+      </div>
+    );
   }
 
   return (
@@ -57,11 +105,8 @@ export function App(): ReactNode {
         {snapshot.readStatus}
       </p>
 
-      <ArtworkRequestDialog open={artworkReqOpen} onClose={() => setArtworkReqOpen(false)} locale={locale} deviceName={artworkDeviceName} />
-      <ReportProblemDialog open={snapshot.reportProblemOpen} onClose={() => control.closeReportProblem()} deviceName={snapshot.status?.name ?? ""} />
       <RazerWebNoticeDialog open={snapshot.razerWebNoticeOpen} onClose={() => control.closeRazerWebNotice()} />
-      <ShareProfileDialog open={shareProfileOpen} onClose={() => setShareProfileOpen(false)} snapshot={snapshot} />
-      <ToastHost toasts={snapshot.toasts} locale={locale} />
+      {dialogs}
     </div>
   );
 }

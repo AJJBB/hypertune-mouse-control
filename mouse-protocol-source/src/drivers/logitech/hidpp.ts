@@ -83,6 +83,7 @@ import {
   MODE_STATUS,
   buildModeStatusWriteMany,
   decodeModeStatus,
+  hasLightforceSwitches,
   type GamingSurfaceMode,
   type LightforceSwitchMode,
   type ModeStatusField,
@@ -106,7 +107,9 @@ import {
   encodeMacroSector,
   encodeProfileName,
   encodeReportRate,
+  factoryDirectoryForFormat,
   factoryProfileForFormat,
+  isBlankDirectory,
   validateDpiStagePlan,
   type DpiStagePlan,
   type LogitechButtonAction,
@@ -314,6 +317,7 @@ const HOST_SWITCH_ACK_TIMEOUT_MS = 1500;
 const FEATURE = {
   deviceName: 0x0005,
   firmware: 0x0003,
+
   unifiedBattery: 0x1004,
   // Pre-unified battery reporting, still the only one on HERO-era mice.
   batteryStatus: 0x1000,
@@ -340,7 +344,19 @@ const FEATURE = {
   hostsInfo: 0x1815,
   changeHost: 0x1814,
   reprogControls: 0x1b04,
+  hostBunnyHop: 0x80e0,
+  buttonListener: 0x8110,
 } as const;
+
+/**
+ * HID++ 1.0 short-register access for the receiver itself. The agent reads
+ * receiver firmware "from 0xf1"; framing follows the HID++ 1.0 short
+ * convention (device 0xFF = the receiver, sub-ID 0x81 = get-register).
+ */
+const RECEIVER_DEVICE_INDEX = 0xff;
+const HIDPP1_GET_REGISTER = 0x81;
+const RECEIVER_FIRMWARE_REGISTER = 0xf1;
+
 
 interface ResolvedFeature {
   index: number;
@@ -458,6 +474,8 @@ export class LogitechHidppClient {
   private reportRateFeatureIndex: number | null = null;
   private analogButtonsFeatureIndex: number | null = null;
   private readonly analogPressListeners = new Set<(left: number, right: number) => void>();
+  private buttonListenerFeatureIndex: number | null = null;
+  private readonly buttonChangeListeners = new Set<(buttons: number) => void>();
   private supportedPollingRatesCache: number[] | null = null;
   /** Caps the report-rate settling retry (see readStatus) across the whole
       connection — readStatus is polled repeatedly in the background, and a
@@ -498,6 +516,27 @@ export class LogitechHidppClient {
     }
 
     const report = new Uint8Array(event.data.buffer.slice(event.data.byteOffset, event.data.byteOffset + event.data.byteLength));
+    const registerIndex = this.registerWaiters.findIndex(
+      () => report[0] === RECEIVER_DEVICE_INDEX
+        && report[1] === HIDPP1_GET_REGISTER
+        && report[2] === RECEIVER_FIRMWARE_REGISTER,
+    );
+    if (registerIndex >= 0) {
+      this.registerWaiters.splice(registerIndex, 1)[0]?.resolve(report);
+      return;
+    }
+    const registerErrorIndex = this.registerWaiters.findIndex(
+      () => report[0] === RECEIVER_DEVICE_INDEX
+        && report[1] === 0x8f
+        && report[2] === HIDPP1_GET_REGISTER
+        && report[3] === RECEIVER_FIRMWARE_REGISTER,
+    );
+    if (registerErrorIndex >= 0) {
+      this.registerWaiters.splice(registerErrorIndex, 1)[0]?.reject(
+        new Error(`The receiver rejected register 0xF1 (HID++ error 0x${(report[4] ?? 0).toString(16)}).`),
+      );
+      return;
+    }
     if (report[0] === this.deviceIndex && report[1] === this.reportRateFeatureIndex && report[2] === 0x00 && report[3] === 0x01) {
       const rate = REPORT_RATE_HZ[report[4] ?? -1];
       if (rate) {
@@ -510,6 +549,10 @@ export class LogitechHidppClient {
     // HITS pushes the live press depth of each button (0..10) as event 0 while one is held.
     if (report[0] === this.deviceIndex && report[1] === this.analogButtonsFeatureIndex && report[2] === 0x00) {
       this.analogPressListeners.forEach((listener) => listener(report[3] ?? 0, report[4] ?? 0));
+    }
+    // The button listener pushes the buttons held right now as a bitmask in event 0.
+    if (report[0] === this.deviceIndex && report[1] === this.buttonListenerFeatureIndex && report[2] === 0x00) {
+      this.buttonChangeListeners.forEach((listener) => listener(report[4] ?? 0));
     }
     const matchingIndex = this.waiters.findIndex(
       (waiter) => report[0] === this.deviceIndex
@@ -539,6 +582,16 @@ export class LogitechHidppClient {
   private readonly waiters: Array<{
     featureIndex: number;
     functionId: number;
+    resolve: (report: Uint8Array) => void;
+    reject: (reason: Error) => void;
+  }> = [];
+
+  /**
+   * One-shot waiters for HID++ 1.0 register replies, matched on the exact
+   * [0xFF, 0x81, register] prefix. Separate from `waiters` because 1.0
+   * replies carry no software id, so the 2.0 matcher would never fire.
+   */
+  private readonly registerWaiters: Array<{
     resolve: (report: Uint8Array) => void;
     reject: (reason: Error) => void;
   }> = [];
@@ -867,6 +920,10 @@ export class LogitechHidppClient {
     // also makes every input report unambiguous to the WebHID event handler.
     const name = await this.readName(nameFeature.index);
     const identity = await this.readIdentity(firmwareFeature.index);
+    // 0x8061's rate list is per link. The query below has to know which one
+    // before it asks, or a Lightspeed receiver is handed the wired 1 kHz list.
+    this.wiredConnection = isWiredHidppConnection(this.device.productId, identity.transportIds, this.isDirectConnect);
+    this.usbTransportId = identity.transportIds.USB ?? null;
     const battery = batteryFeature.index
       // Ordered by how directly each reports charge: 0x1004 and 0x1000 give a
       // percentage outright, while the voltage features only allow an estimate.
@@ -934,9 +991,7 @@ export class LogitechHidppClient {
       };
     }
     this.supportedLods = [...this.lodCapabilities.supportedLods];
-    const wired = isWiredHidppConnection(this.device.productId, identity.transportIds, this.isDirectConnect);
-    this.wiredConnection = wired;
-    this.usbTransportId = identity.transportIds.USB ?? null;
+    const wired = this.wiredConnection;
     this.lodCapabilities = {
       ...this.lodCapabilities,
       reportRates: reportRateCapabilitiesFor(onboardProfileFormat?.id, this.usbTransportId),
@@ -1038,7 +1093,7 @@ export class LogitechHidppClient {
       gamingSurfaceMode: modeStatus === null || !hasLiveLiftOffControl
         ? null
         : decodeModeStatus(modeStatus, MODE_STATUS.gamingSurface),
-      lightforceSwitchMode: modeStatus === null || !hasLiveLiftOffControl
+      lightforceSwitchMode: modeStatus === null || !hasLiveLiftOffControl || !hasLightforceSwitches(Boolean(analogButtonsFeature.index))
         ? null
         : decodeModeStatus(modeStatus, MODE_STATUS.lightforce),
       lighting: lighting ?? undefined,
@@ -1076,6 +1131,7 @@ export class LogitechHidppClient {
   }
 
   async close(): Promise<void> {
+    this.buttonListenerFeatureIndex = null;
     if (this.rgbClaimed) {
       const rgb = await this.getFeature(FEATURE.rgbEffects).catch(() => ({ index: 0, version: 0 }));
       if (rgb.index) await this.request(rgb.index, 0x50, 0x01, 0x00, 0x00).catch(() => undefined);
@@ -1462,6 +1518,51 @@ export class LogitechHidppClient {
     await this.request(feature.index, 0x30, 0x00, 0x00, 0x00).catch(() => undefined);
   }
 
+  /**
+   * Pressed buttons as a bitmask, pushed on every press and release while the
+   * button listener is on: 0x01 left, 0x02 right, 0x04 middle, 0x08 the back side
+   * button, 0x10 the front side button (PRO X 3 Superstrike, from G HUB's
+   * capture and a hardware run). Returns the unsubscribe.
+   */
+  onButtonChange(listener: (buttons: number) => void): () => void {
+    this.buttonChangeListeners.add(listener);
+    return () => this.buttonChangeListeners.delete(listener);
+  }
+
+  /**
+   * Starts the button events the way G HUB does when it takes over a mouse
+   * running from software (Host mode): getCount (function 0), getList (3),
+   * start (1), then setList (4) with every button the mouse listed. The mouse
+   * stays silent until this has run. What function 1 does is read from its
+   * place in the capture, not documented; it is replayed as sent. Returns the
+   * button numbers being reported.
+   */
+  async startButtonListener(): Promise<number[]> {
+    const feature = await this.getFeature(FEATURE.buttonListener);
+    if (!feature.index) throw new Error("This Logitech mouse does not report its buttons.");
+    this.buttonListenerFeatureIndex = feature.index;
+    const count = (await this.request(feature.index, 0x00))[3] ?? 0;
+    const list = [...(await this.request(feature.index, 0x30)).slice(3, 3 + count)];
+    await this.request(feature.index, 0x10);
+    try {
+      await this.requestLong(feature.index, 0x40, list);
+    } catch (error) {
+      // The mouse was already told to start, so stop it again rather than leave it half set up.
+      this.buttonListenerFeatureIndex = null;
+      await this.request(feature.index, 0x20).catch(() => undefined);
+      throw error;
+    }
+    return list;
+  }
+
+  /** Stops the button events: function 2, as G HUB sends when it quits. */
+  async stopButtonListener(): Promise<void> {
+    this.buttonListenerFeatureIndex = null;
+    const feature = await this.getFeature(FEATURE.buttonListener);
+    if (!feature.index) return;
+    await this.request(feature.index, 0x20).catch(() => undefined);
+  }
+
   private assertAnalogTuningInRange(
     limits: { maxActuation: number; maxRapidTrigger: number; maxHaptics: number },
     tuning: { actuation: number; rapidTrigger: number; haptics: number },
@@ -1645,6 +1746,78 @@ export class LogitechHidppClient {
     } finally {
       // A failed sector write must not strand the mouse in software-controlled
       // host mode. Preserve the original error if recovery also fails.
+      if (!finished) await this.setOnboardMode("Onboard").catch(() => undefined);
+    }
+  }
+
+  /**
+   * Gives a mouse that has no profiles yet (G HUB has never linked it) the
+   * factory set, so OpenMouse does not need G HUB to initialise it: every
+   * factory profile sector, then a directory listing them with the first
+   * enabled, then profile 1 selected.
+   *
+   * WRITES FLASH. Only for a format whose factory sectors and directory were
+   * captured from G HUB, and only when the directory is truly blank. The
+   * directory goes last, so a failure part-way leaves the mouse as blank as it
+   * started instead of pointing at half-written sectors. The sequence was
+   * captured from G HUB's reset on a linked PRO X 3 SUPERSTRIKE; it has not
+   * been run against a never-linked mouse.
+   */
+  async initializeBlankOnboardProfiles(): Promise<void> {
+    await this.open();
+    const feature = await this.getFeature(FEATURE.onboardProfiles);
+    if (!feature.index) {
+      throw new Error("This Logitech mouse does not expose onboard-profile controls.");
+    }
+
+    const info = parseProfilesInfo(await this.request(feature.index, PROFILE_FN.getInfo));
+    const sectorSize = info.sectorSize > 0 && info.sectorSize <= 1024 ? info.sectorSize : 255;
+    const factoryProfile = factoryProfileForFormat(info.profileFormatId, sectorSize);
+    const factoryDirectory = factoryDirectoryForFormat(info.profileFormatId, sectorSize);
+    if (!factoryProfile || !factoryDirectory) {
+      throw new Error(`Factory profiles have not been captured for profile format ${info.profileFormatId}.`);
+    }
+    if (profileCrc(factoryProfile) !== storedCrc(factoryProfile) || profileCrc(factoryDirectory) !== storedCrc(factoryDirectory)) {
+      throw new Error("The built-in factory profiles failed their checksum; refusing to write.");
+    }
+
+    const existing = await this.readProfileSector(feature.index, 0x0000, sectorSize);
+    if (!isBlankDirectory(existing)) {
+      throw new Error("This mouse already has onboard profiles; use reset instead.");
+    }
+    const sectors = parseDirectory(factoryDirectory).map((entry) => entry.sector);
+    // The directory layout was captured from one model. Only write it to a mouse
+    // that itself reports at least that many profiles.
+    if (info.profileCount < sectors.length) {
+      throw new Error(`This mouse reports ${info.profileCount} profiles but the captured factory layout has ${sectors.length}; refusing to write it.`);
+    }
+    const firstSector = sectors[0];
+
+    // Host mode keeps the mouse from loading a sector while it is being filled.
+    await this.setOnboardMode("Host");
+    let finished = false;
+    try {
+      for (const sector of sectors) {
+        await this.writeProfileSector(feature.index, sector, factoryProfile);
+        const confirmed = await this.readProfileSector(feature.index, sector, sectorSize);
+        if (!confirmed.every((byte, index) => byte === factoryProfile[index])) {
+          throw new Error(`Profile ${sector} did not confirm its factory image.`);
+        }
+      }
+      await this.writeProfileSector(feature.index, 0x0000, factoryDirectory);
+      const confirmedDirectory = await this.readProfileSector(feature.index, 0x0000, sectorSize);
+      if (!confirmedDirectory.every((byte, index) => byte === factoryDirectory[index])) {
+        throw new Error("The mouse did not confirm the new profile directory.");
+      }
+
+      await this.request(feature.index, PROFILE_FN.setCurrentProfile, (firstSector >> 8) & 0xff, firstSector & 0xff);
+      await this.setOnboardMode("Onboard");
+      const current = await this.request(feature.index, PROFILE_FN.getCurrentProfile);
+      if ((((current[3] ?? 0) << 8) | (current[4] ?? 0)) !== firstSector) {
+        throw new Error("The profiles were created, but the mouse did not select the first one.");
+      }
+      finished = true;
+    } finally {
       if (!finished) await this.setOnboardMode("Onboard").catch(() => undefined);
     }
   }
@@ -1874,6 +2047,25 @@ export class LogitechHidppClient {
 
   async setBunnyHoppingMs(milliseconds: number): Promise<void> {
     await this.writeActiveProfile({ bunnyHoppingMs: milliseconds });
+  }
+
+  /**
+   * Sets bunny hop on a mouse running from software (Host mode): a single write
+   * to feature 0x80E0, function 2, whose one byte is the time in 10 ms units and
+   * 0 turns it off. Captured from G HUB on a PRO X 3 Superstrike (0x0a, 0x14, then
+   * 0x00); the reading of the byte as ms / 10 follows the onboard profile's
+   * encoding and is not confirmed. G HUB sends 0 when it enters Host mode, so the
+   * setting starts off there. No read for it has been seen, so the caller keeps
+   * track of the value it wrote. Nothing is stored in the mouse's profile.
+   */
+  async setHostBunnyHopMs(milliseconds: number): Promise<void> {
+    const invalid = validateBunnyHoppingMs(milliseconds);
+    if (invalid) throw new Error(invalid);
+    const feature = await this.getFeature(FEATURE.hostBunnyHop);
+    if (!feature.index) {
+      throw new Error("This mouse does not expose a Host mode bunny hop setting.");
+    }
+    await this.request(feature.index, 0x20, milliseconds / 10);
   }
 
   async setProfileDpiStages(plan: DpiStagePlan): Promise<void> {
@@ -2350,14 +2542,14 @@ export class LogitechHidppClient {
         });
         result.decodedValues = decodeReportRateBitmap(listReply[3] ?? 0);
       } else {
-        const listReply = await this.request(result.featureIndex, 0x10);
+        const connection = this.reportRateConnection();
+        const listReply = await this.request(result.featureIndex, 0x10, connection);
         result.replies.push({ name: "getSupportedReportRates", bytes: listReply });
         result.replies.push({
           name: "getReportRate",
-          bytes: await this.request(result.featureIndex, 0x20),
+          bytes: await this.request(result.featureIndex, 0x20, connection),
         });
-        const flags = ((listReply[3] ?? 0) << 8) | (listReply[4] ?? 0);
-        result.decodedValues = REPORT_RATE_HZ.filter((_rate, index) => (flags & (1 << index)) !== 0);
+        result.decodedValues = this.decodeExtendedReportRateMask(listReply);
       }
     } catch (error) {
       result.error = error instanceof Error ? error.message : "Could not read report-rate capabilities.";
@@ -2950,6 +3142,10 @@ export class LogitechHidppClient {
       requested.push({ field: MODE_STATUS.gamingSurface, mode: values.gamingSurface, label: "gaming surface mode" });
     }
     if (values.lightforce) {
+      const hits = await this.getFeature(FEATURE.analogButtons);
+      if (!hasLightforceSwitches(Boolean(hits.index))) {
+        throw new Error("This mouse has no LightForce switches (its buttons are HITS), so there is no switch mode to change.");
+      }
       requested.push({ field: MODE_STATUS.lightforce, mode: values.lightforce, label: "LightForce switch mode" });
     }
     if (requested.length === 0) return;
@@ -3388,11 +3584,37 @@ export class LogitechHidppClient {
     return { x, y, lod: reply[12] ?? 0 };
   }
 
-  private async readSupportedPollingRates(featureIndex: number): Promise<number[]> {
-    if (!featureIndex) return [];
-    const reply = await this.request(featureIndex, 0x10);
+  /**
+   * 0x8061 connection argument. 0 is the USB cable, 1 is Lightspeed. Omitting
+   * it reads the cable's list, which on a Superlight 2 stops at 1000 Hz.
+   */
+  private reportRateConnection(): number {
+    return this.wiredConnection ? 0x00 : 0x01;
+  }
+
+  /** Bit N of the big-endian mask is rate code N: 125 Hz through 8000 Hz. */
+  private decodeExtendedReportRateMask(reply: Uint8Array): number[] {
     const flags = ((reply[3] ?? 0) << 8) | (reply[4] ?? 0);
     return REPORT_RATE_HZ.filter((_rate, index) => (flags & (1 << index)) !== 0);
+  }
+
+  private async readSupportedPollingRates(featureIndex: number): Promise<number[]> {
+    if (!featureIndex) return [];
+    const connection = this.reportRateConnection();
+    // Function 0x10 is the list for the connection in the first parameter.
+    // A zero there is the wired list (issue #224).
+    const listed = this.decodeExtendedReportRateMask(await this.request(featureIndex, 0x10, connection));
+    if (connection === 0x00 || listed.some((rate) => rate > 1000)) return listed;
+    // Some firmware keeps the capability bitmask on function 0 and answers
+    // function 0x10 with the wired ceiling even when asked for Lightspeed.
+    // An unsupported function comes back as an error, not a timeout.
+    try {
+      const capabilities = this.decodeExtendedReportRateMask(await this.request(featureIndex, 0x00, connection));
+      if (capabilities.some((rate) => rate > 1000)) return capabilities;
+    } catch {
+      // Function 0 is absent on the versions that answer function 0x10.
+    }
+    return listed;
   }
 
   private async readPollingRate(featureIndex: number): Promise<number> {
@@ -3400,7 +3622,7 @@ export class LogitechHidppClient {
       throw new Error("This Logitech mouse does not expose extended report-rate controls.");
     }
 
-    const reply = await this.request(featureIndex, 0x20);
+    const reply = await this.request(featureIndex, 0x20, this.reportRateConnection());
     const rate = REPORT_RATE_HZ[reply[3] ?? -1];
     if (!rate) {
       throw new Error("The mouse returned an unknown report-rate value.");
@@ -3507,6 +3729,58 @@ export class LogitechHidppClient {
       firmware.push(`${name} ${major}.${minor}`);
     }
     return firmware;
+  }
+
+  /**
+   * Reads raw receiver MCU information via HID++ 1.0 register 0xF1.
+   *
+   * On a live PRO LIGHTSPEED receiver, selector 1 returned [1, 7, 2] and
+   * selector 2 returned [2, 0, 17] both before and after G HUB updated the
+   * receiver from 14.3.19 to 14.4.20. These bytes do not encode the package
+   * version, so the version remains unknown until a verified read is found.
+   * Selector 0 returned HID++ error 0x03 on that receiver. Read-only.
+   */
+  async readReceiverFirmware(mcu: 1 | 2 = 2): Promise<{ version: string | null; raw: number[] }> {
+    await this.open();
+    const report = new Uint8Array([
+      RECEIVER_DEVICE_INDEX,
+      HIDPP1_GET_REGISTER,
+      RECEIVER_FIRMWARE_REGISTER,
+      mcu,
+      0,
+      0,
+    ]);
+    const response = this.waitForRegisterReply();
+    void response.catch(() => undefined);
+    await this.reportDevice.sendReport(SHORT_REPORT_ID, report);
+    const reply = await response;
+    const payload = [...reply.subarray(3, 7)];
+    if (payload[0] !== mcu) {
+      throw new Error(`Receiver register 0xF1 answered for MCU ${payload[0] ?? "?"}, expected ${mcu}.`);
+    }
+    return { version: null, raw: payload };
+  }
+
+  private waitForRegisterReply(timeoutMs = REQUEST_TIMEOUT_MS): Promise<Uint8Array> {
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        const index = this.registerWaiters.findIndex((waiter) => waiter.reject === reject);
+        if (index >= 0) {
+          this.registerWaiters.splice(index, 1);
+        }
+        reject(new HidppTimeoutError("The receiver did not answer its firmware register."));
+      }, timeoutMs);
+      this.registerWaiters.push({
+        resolve: (report) => {
+          window.clearTimeout(timeout);
+          resolve(report);
+        },
+        reject: (reason) => {
+          window.clearTimeout(timeout);
+          reject(reason);
+        },
+      });
+    });
   }
 
   private async request(featureIndex: number, functionId: number, ...parameters: number[]): Promise<Uint8Array> {
