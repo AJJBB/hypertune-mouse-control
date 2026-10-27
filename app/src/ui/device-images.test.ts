@@ -141,6 +141,14 @@ test("G305/G304 and G309 use their own renders by name", () => {
   assert.equal(deviceImage(null, "G309 Lightspeed"), CDN + "logitech-g309.png");
 });
 
+test("MX Master 3 reuses the 3S render by name; 3S still resolves itself", () => {
+  // hypertune-reports #20: "Wireless Mouse MX Master 3" fell to the placeholder
+  // because only an "MX Master 3S" rule existed. The 3 and 3S share a shell.
+  assert.equal(deviceImage(null, "MX Master 3"), CDN + "logitech-mx-master-3s.png");
+  assert.equal(deviceImage(null, "Wireless Mouse MX Master 3"), CDN + "logitech-mx-master-3s.png");
+  assert.equal(deviceImage(null, "MX Master 3S"), CDN + "logitech-mx-master-3s.png");
+});
+
 test("MX Anywhere 3 and MX Ergo S resolve by name over their shared Bolt receiver", () => {
   assert.equal(deviceImage(null, "MX Anywhere 3"), CDN + "logitech-mx-anywhere-3.png");
   assert.equal(deviceImage(null, "MX Ergo S Wireless Trackball"), CDN + "logitech-mx-ergo-s.png");

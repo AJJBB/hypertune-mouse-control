@@ -63,6 +63,9 @@ function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displ
   if (/\battack\s*shark\s*x3\b/i.test(displayName)) return "attackshark-x3.png";
   if (/\bm[23]k\b/i.test(displayName)) return "zaunkoenig-m3k.png";
   if (/\bmx\s*master\s*3s\b/i.test(displayName)) return "logitech-mx-master-3s.png";
+  // The MX Master 3 shares the 3S's external shell, so it reuses that render
+  // (runs after the 3S rule, and the "3" boundary won't swallow "3S").
+  if (/\bmx\s*master\s*3\b/i.test(displayName)) return "logitech-mx-master-3s.png";
   if (/\bterra\s*pro\b/i.test(displayName)) return "teevolution-terra-pro.png";
   if (/\bm-001\b/i.test(displayName)) return "wallhack-m-001.png";
   if (/\bk-001\b/i.test(displayName)) return "wallhack-k-001.png";

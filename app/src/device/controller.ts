@@ -2623,6 +2623,16 @@ async function writeStagedProfileSector(): Promise<void> {
       .filter((edit): edit is Extract<StagedProfileButtonEdit, { kind: "macro" }> => edit.kind === "macro")
       .map(({ layer, button, steps }) => ({ layer, button, steps })),
   });
+  // The sensor runs the profile copy already loaded in RAM, so a flash-only
+  // rewrite leaves the live DPI (and rate/button/name) unchanged until the
+  // profile is reselected — the same volatile reload selectOnboardProfile()
+  // uses to make a profile's settings take effect (onboard-profiles reselect,
+  // no host-mode switch, no extra flash write). Reselect the edited profile
+  // when it is the running one so the change is felt immediately; gated on
+  // isCurrent so editing a stored, non-running profile never switches the
+  // active one. Fixes "changing DPI does nothing" on onboard Logitech mice
+  // (hypertune-reports #18 PRO X Wireless, #19 G Pro Wireless).
+  if (entry.isCurrent) await client.setCurrentProfile(entry.sector);
   onboardProfiles = null;
   await reloadOnboardProfiles();
 }
