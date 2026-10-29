@@ -3,7 +3,7 @@
 // below it. Matches the Figma "App / Mouse WIP → Mouse - Added / Nothing
 // Connected" frames 1:1, driven by the live controller snapshot.
 import { useState, type ReactNode } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Flag } from "lucide-react";
 import * as control from "../../device/controller";
 import { connectionText } from "../../i18n";
 import type { ControlSnapshot, SidebarDevice } from "../../device/types";
@@ -140,20 +140,44 @@ function EmptyState({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
         <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
         Add mouse
       </button>
-      <button type="button" className="htv2-empty-help" onClick={() => control.openReportProblem()}>Having an issue?</button>
     </div>
+  );
+}
+
+/** Bottom bar for the connect/grid page: a Report-a-problem prompt (so users
+    can always report issues) plus the required OpenMouse / AGPL attribution. */
+function GridFoot(): ReactNode {
+  return (
+    <footer className="htv2-grid-foot">
+      <div className="htv2-grid-report">
+        <span>Mouse not detecting, or having an issue?</span>
+        <button type="button" className="htv2-dreport" onClick={() => control.openReportProblem()}>
+          <Flag size={15} strokeWidth={1.8} />Report a problem
+        </button>
+      </div>
+      <div className="htv2-legal">
+        <span>In partnership with <a href="https://github.com/OpenMouse-Project/mouse-protocol" target="_blank" rel="noreferrer noopener">OpenMouse</a></span>
+        <span><a href="https://github.com/AJJBB/hypertune-mouse-control" target="_blank" rel="noreferrer noopener">Source</a>{" · "}<a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer noopener">AGPL-3.0</a></span>
+      </div>
+    </footer>
   );
 }
 
 export function DeviceGrid({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const mice = snapshot.devices.filter((d) => d.kind === "mouse");
-  if (mice.length === 0) return <EmptyState snapshot={snapshot} />;
   return (
-    <div className="htv2-device-grid">
-      {mice.map((device) => (
-        <DeviceCard key={`${device.vendorId}:${device.productId}:${device.index}`} device={device} snapshot={snapshot} />
-      ))}
-      <AddMouseCard snapshot={snapshot} />
+    <div className="htv2-grid-wrap">
+      {mice.length === 0 ? (
+        <EmptyState snapshot={snapshot} />
+      ) : (
+        <div className="htv2-device-grid">
+          {mice.map((device) => (
+            <DeviceCard key={`${device.vendorId}:${device.productId}:${device.index}`} device={device} snapshot={snapshot} />
+          ))}
+          <AddMouseCard snapshot={snapshot} />
+        </div>
+      )}
+      <GridFoot />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 // Header (back + section switcher + device name + status pills) over a per-section
 // body. Matches Figma "App / Mouse WIP → Mouse - *", driven by the live controller.
 import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
-import { ChevronLeft, ChevronDown, ChevronRight, Crosshair, Activity, Battery, BatteryCharging, Minus, Waves, CircleDot, Palette, Power, Sparkles, Sun, Zap, Plus, Share2, Trash2, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crosshair, Activity, Battery, BatteryCharging, Minus, Waves, CircleDot, Palette, Power, Sparkles, Sun, Zap, Plus, Share2, Trash2, Pencil, Flag } from "lucide-react";
 import {
   EGG_BUTTON_MAPPINGS,
   EGG_BUTTON_NAMES,
@@ -1072,42 +1072,107 @@ function MouseTestBody(): ReactNode {
 }
 
 const SECTIONS: Array<{ tab: WorkspaceTab; label: string }> = [
+  { tab: "overview", label: "Overview" },
   { tab: "performance", label: "Performance" },
-  { tab: "lighting", label: "Lighting" },
   { tab: "buttons", label: "Buttons" },
+  { tab: "lighting", label: "Lighting" },
   { tab: "profiles", label: "Profiles" },
   { tab: "advanced", label: "Advanced" },
-  { tab: "test", label: "Mouse Test" },
+  { tab: "test", label: "Mouse test" },
 ];
 
-function SectionSwitcher({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
-  const [open, setOpen] = useState(false);
-  const active = snapshot.workspaceTab === "overview" ? "performance" : snapshot.workspaceTab;
-  const current = SECTIONS.find((x) => x.tab === active) ?? SECTIONS[0];
+/** Horizontal top tab bar (Figma v2 — replaces the old dropdown switcher). */
+function TabBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const active = snapshot.workspaceTab;
+  const s = snapshot.status;
+  // Lighting is only a tab for mice that actually have RGB (matches the Figma's
+  // 6-tab bar on non-RGB mice; keeps the controls where they're supported).
+  const hasLighting = !!(s?.lightingZones?.length || s?.lighting);
+  const tabs = SECTIONS.filter((sec) => sec.tab !== "lighting" || hasLighting);
   return (
-    <div className="htv2-dsection-wrap">
-      <button type="button" className="htv2-dsection" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        <span>{current.label}</span>
-        <ChevronDown size={16} strokeWidth={2} />
-      </button>
-      {open ? (
-        <>
-          <div className="htv2-dsection-scrim" onClick={() => setOpen(false)} />
-          <ul className="htv2-dsection-menu">
-            {SECTIONS.map((sec) => (
-              <li key={sec.tab}>
-                <button
-                  type="button"
-                  className={`htv2-dsection-item${sec.tab === active ? " is-on" : ""}`}
-                  onClick={() => { control.setWorkspaceTab(sec.tab); setOpen(false); }}
-                >
-                  {sec.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null}
+    <nav className="htv2-tabs" aria-label="Mouse control sections">
+      {tabs.map((sec) => (
+        <button
+          key={sec.tab}
+          type="button"
+          className={`htv2-tab${sec.tab === active ? " is-on" : ""}`}
+          aria-current={sec.tab === active ? "page" : undefined}
+          onClick={() => control.setWorkspaceTab(sec.tab)}
+        >
+          {sec.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function OvRow({ label, value, sub }: { label: string; value: ReactNode; sub?: string | null }): ReactNode {
+  return (
+    <div className="htv2-ov-row">
+      <span className="htv2-ov-row-label">{label}</span>
+      <span className="htv2-ov-row-value">{value}{sub ? <span className="htv2-ov-row-sub">{sub}</span> : null}</span>
+    </div>
+  );
+}
+
+/** Overview tab — device hero + DPI/Polling stat cards + Status / Device Info. */
+function OverviewBody({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  const s = snapshot.status!;
+  const device = control.getActiveDevice();
+  const charging = isCharging(s.batteryState);
+  const fw = s.firmware;
+  const activeProfile = s.activeProfile !== null ? `Profile ${s.activeProfile}` : null;
+  return (
+    <div className="htv2-ov">
+      <div className="htv2-ov-hero">
+        <img src={deviceImage(device, s.name)} alt="" draggable={false}
+          onError={(e) => { e.currentTarget.src = "/v2/empty-mouse.png"; }} />
+      </div>
+      <div className="htv2-ov-main">
+        <h3 className="htv2-ov-h">Status</h3>
+        <div className="htv2-ov-stats">
+          <div className="htv2-ov-stat">
+            <span className="htv2-ov-stat-top"><Crosshair size={15} strokeWidth={1.8} />DPI</span>
+            <span className="htv2-ov-stat-n">{s.dpi > 0 ? s.dpi.toLocaleString() : "—"}<em>DPI</em></span>
+            <span className="htv2-ov-ticks" aria-hidden="true" />
+          </div>
+          <div className="htv2-ov-stat">
+            <span className="htv2-ov-stat-top"><Activity size={15} strokeWidth={1.8} />Polling rate</span>
+            <span className="htv2-ov-stat-n">{s.pollingRateHz || "—"}<em>Hz</em></span>
+            <span className="htv2-ov-ticks" aria-hidden="true" />
+          </div>
+        </div>
+        <div className="htv2-ov-list">
+          {s.batteryPercent !== null ? (
+            <OvRow
+              label="Battery"
+              value={<>{charging ? <BatteryCharging size={15} strokeWidth={1.8} /> : <Battery size={15} strokeWidth={1.8} />}{s.batteryPercent}%</>}
+              sub={s.batteryState !== "Unknown" ? String(s.batteryState) : null}
+            />
+          ) : null}
+          {s.connectionType ? <OvRow label="Connection" value={s.connectionType} sub={s.connectionDetail ?? null} /> : null}
+          {activeProfile ? <OvRow label="Active profile" value={activeProfile} /> : null}
+        </div>
+        <h3 className="htv2-ov-h">Device Info</h3>
+        <div className="htv2-ov-list">
+          <OvRow label="Manufacturer" value={s.brand} />
+          {fw.length === 1 ? <OvRow label="Firmware" value={fw[0]!} /> : null}
+          {fw.length >= 2 ? <OvRow label="Mouse firmware" value={fw[0]!} /> : null}
+          {fw.length >= 2 ? <OvRow label="Dongle firmware" value={fw[1]!} /> : null}
+          {s.profileCount ? <OvRow label="Onboard memory" value={`${s.profileCount} profiles`} /> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** AGPL attribution — OpenMouse, our source, the license. Required, and kept on
+    every integrated screen since the native shell's own credit isn't ours. */
+function DeviceLegal(): ReactNode {
+  return (
+    <div className="htv2-legal">
+      <span>In partnership with <a href="https://github.com/OpenMouse-Project/mouse-protocol" target="_blank" rel="noreferrer noopener">OpenMouse</a></span>
+      <span><a href="https://github.com/AJJBB/hypertune-mouse-control" target="_blank" rel="noreferrer noopener">Source</a>{" · "}<a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer noopener">AGPL-3.0</a></span>
     </div>
   );
 }
@@ -1116,44 +1181,45 @@ export function DeviceDetail({ snapshot, onShareProfile }: { snapshot: ControlSn
   const s = snapshot.status;
   const brand = (s?.brand ?? "").toUpperCase();
   const model = s?.name ?? "Device";
-  const section = snapshot.workspaceTab === "overview" ? "performance" : snapshot.workspaceTab;
+  const section = snapshot.workspaceTab;
+  const showShare = (section === "overview" || section === "profiles") && onShareProfile;
   return (
     <div className="htv2-detail2">
-      <header className="htv2-dhead">
-        <div className="htv2-dhead-left">
-          <button type="button" className="htv2-dback-btn" onClick={() => control.showDeviceList()} aria-label="Back to mice">
+      <TabBar snapshot={snapshot} />
+      <header className="htv2-dhead2">
+        <div className="htv2-dname2">
+          <button type="button" className="htv2-dback2" onClick={() => control.showDeviceList()} aria-label="Back to mice">
             <ChevronLeft size={18} strokeWidth={2} />
           </button>
-          <SectionSwitcher snapshot={snapshot} />
-          <div className="htv2-dname">
+          <span className="htv2-dname-col">
             {brand ? <span className="htv2-card-brand">{brand}</span> : null}
             <span className="htv2-dname-model">{model}</span>
-          </div>
+          </span>
         </div>
         <div className="htv2-dhead-right">
           <StatusPills snapshot={snapshot} />
-          {section === "profiles" && onShareProfile ? (
+          <button type="button" className="htv2-dreport" onClick={() => control.openReportProblem()}>
+            <Flag size={15} strokeWidth={1.8} />Report Problem
+          </button>
+          {showShare ? (
             <button type="button" className="htv2-dshare" onClick={onShareProfile}>
               <Share2 size={16} strokeWidth={1.8} />Share profile
             </button>
           ) : null}
         </div>
       </header>
-      {!s ? null : section === "performance" ? (
-        <PerformanceBody snapshot={snapshot} />
-      ) : section === "lighting" ? (
-        <LightingBody snapshot={snapshot} />
-      ) : section === "buttons" ? (
-        <ButtonsBody snapshot={snapshot} />
-      ) : section === "advanced" ? (
-        <AdvancedBody snapshot={snapshot} />
-      ) : section === "profiles" ? (
-        <ProfilesBody snapshot={snapshot} onShareProfile={onShareProfile} />
-      ) : section === "test" ? (
-        <MouseTestBody />
-      ) : (
-        <div className="htv2-section-ph">{SECTIONS.find((x) => x.tab === section)?.label} — coming next</div>
-      )}
+      <div className="htv2-dview">
+        {!s ? null
+          : section === "overview" ? <OverviewBody snapshot={snapshot} />
+          : section === "performance" ? <PerformanceBody snapshot={snapshot} />
+          : section === "lighting" ? <LightingBody snapshot={snapshot} />
+          : section === "buttons" ? <ButtonsBody snapshot={snapshot} />
+          : section === "advanced" ? <AdvancedBody snapshot={snapshot} />
+          : section === "profiles" ? <ProfilesBody snapshot={snapshot} onShareProfile={onShareProfile} />
+          : section === "test" ? <MouseTestBody />
+          : <div className="htv2-section-ph">{SECTIONS.find((x) => x.tab === section)?.label} — coming next</div>}
+      </div>
+      <DeviceLegal />
     </div>
   );
 }
