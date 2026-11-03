@@ -1949,36 +1949,52 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   active = client;
   activeWorkspaceTab = "overview";
 
-  if (isEggWeClient(client)) await eggWePrepare(client);
-  if (NEEDS_OPEN.some((cls) => client instanceof cls)) await (client as { open(): Promise<unknown> }).open();
+  try {
+    if (isEggWeClient(client)) await eggWePrepare(client);
+    if (NEEDS_OPEN.some((cls) => client instanceof cls)) await (client as { open(): Promise<unknown> }).open();
 
-  if (pulsarClient() !== null) {
-    await showPulsarExplorer(client as PulsarClient);
-  } else {
-    const status = await client.readStatus();
-    dpiOptions = await client.getDpiOptions();
-    const dm = dmClient();
-    const keychron = keychronNapeClient();
-    if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
-    else if (keychron) {
-      lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
+    if (pulsarClient() !== null) {
+      await showPulsarExplorer(client as PulsarClient);
+    } else {
+      const status = await client.readStatus();
+      dpiOptions = await client.getDpiOptions();
+      // Capability flags gate the sleep / disable-sleep / debounce / low-power /
+      // Teevolution cards. Previously only the Pulsar path set these, so on every
+      // other mouse those controls were hidden or stuck — read them here too.
+      capabilities = readCapabilities();
+      const dm = dmClient();
+      const keychron = keychronNapeClient();
+      if (dm) lastSleepSeconds = status.sleepTimeout ?? dm.getSleepOptions()[0] ?? 60;
+      else if (keychron) {
+        lastSleepSeconds = status.sleepTimeout ?? keychron.getSleepOptions()[0] ?? 60;
+      }
+      deviceStatuses.set(client.device, status);
+      applyStatus(status);
+      await readButtons();
+      await loadNapeKeymap(status.napeLayer ?? editedNapeLayer ?? 1);
+      if (dm) {
+        await dm.startNotifications(() => {
+          void refreshStatus();
+        }).catch(() => false);
+      }
     }
-    deviceStatuses.set(client.device, status);
-    applyStatus(status);
-    await readButtons();
-    await loadNapeKeymap(status.napeLayer ?? editedNapeLayer ?? 1);
-    if (dm) {
-      await dm.startNotifications(() => {
-        void refreshStatus();
-      }).catch(() => false);
+
+    await refreshSidebar();
+    rememberActiveDevice(client.device);
+    startAutomaticRefresh();
+    setConnectionButtons(false, "Add device");
+    pushToast("success", st("ctl.connectedTo", { name: statusNameForClient(client) }));
+  } catch (error) {
+    // A failed activation must not leave the closed/failed client as the active
+    // one: that keeps hasActiveClient() true forever, hides the empty state and
+    // blocks reconnectAuthorizedDevice(), wedging the app half-connected. A
+    // transient first read (common while a wireless mouse wakes up) hit this.
+    if (active === client) {
+      showDisconnectedState();
+      emit();
     }
+    throw error;
   }
-
-  await refreshSidebar();
-  rememberActiveDevice(client.device);
-  startAutomaticRefresh();
-  setConnectionButtons(false, "Add device");
-  pushToast("success", st("ctl.connectedTo", { name: statusNameForClient(client) }));
 }
 
 function activateClient(client: SupportedClient): Promise<void> {
