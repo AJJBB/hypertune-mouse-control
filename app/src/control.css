@@ -4149,7 +4149,7 @@ body { height: 100vh; overflow: hidden; }
 .htv2-popup-retry svg { color: var(--v2-text-dim); }
 
 /* ── Mouse Test section (Figma "Mouse - Mouse Test") ───────────────────────── */
-.htv2-test { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; padding-bottom: 4px; }
+.htv2-test { flex: 0 0 auto; display: flex; flex-direction: column; gap: 18px; padding-bottom: 4px; overflow-x: clip; }
 .htv2-test-rig { flex: 0 0 auto; display: flex; align-items: center; }
 .htv2-test-cable {
   position: relative; flex: 1 1 auto; min-width: 20px; height: 12px;
