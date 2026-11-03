@@ -4019,6 +4019,15 @@ body { height: 100vh; overflow: hidden; }
 }
 .htv2-dpi-input:hover { border-bottom-color: var(--v2-line); }
 .htv2-dpi-input:focus { color: var(--v2-accent); border-bottom-color: var(--v2-accent); }
+.htv2-dpi-apply {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  margin-top: 6px; height: 0; padding: 0; overflow: hidden; opacity: 0; pointer-events: none;
+  border: none; border-radius: 6px; background: var(--v2-accent); color: #06231a;
+  font: 600 12px var(--v2-font); white-space: nowrap; cursor: pointer;
+  transition: height .12s ease, opacity .12s ease, padding .12s ease;
+}
+.htv2-dpi-apply.is-dirty { height: 28px; padding: 0 14px; opacity: 1; pointer-events: auto; }
+.htv2-dpi-apply:hover { filter: brightness(1.08); }
 .htv2-dpi-presets {
   display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #0e1011;
 }

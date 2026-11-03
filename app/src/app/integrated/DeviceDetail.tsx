@@ -168,6 +168,10 @@ function DpiPanel({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const canDown = stepVals.some((o) => o < s.dpi);
   const canUp = stepVals.some((o) => o > s.dpi);
   const dpiText = draft !== null ? draft : (s.dpi > 0 ? s.dpi.toLocaleString() : "");
+  // A typed value only commits on blur/Enter, which isn't obvious; show an Apply
+  // button whenever the field holds an unapplied number.
+  const draftValue = draft !== null ? Number(draft.replace(/[^0-9]/g, "")) : 0;
+  const draftDirty = draft !== null && draftValue > 0 && draftValue !== s.dpi;
   return (
     <div className="htv2-dcol-left">
       <div className="htv2-mouse">
@@ -204,6 +208,16 @@ function DpiPanel({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
             />
             <i>DPI</i>
           </span>
+          <button
+            type="button"
+            className={`htv2-dpi-apply${draftDirty ? " is-dirty" : ""}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={commit}
+            tabIndex={draftDirty ? 0 : -1}
+            aria-hidden={!draftDirty}
+          >
+            Apply {draftDirty ? draftValue.toLocaleString() : ""} DPI
+          </button>
         </div>
         <button type="button" className="htv2-dpi-step" onClick={() => stepTo(1)} disabled={!canUp} aria-label="Raise DPI">
           <ChevronRight size={20} strokeWidth={2.4} />
