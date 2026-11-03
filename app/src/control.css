@@ -3791,7 +3791,12 @@ body { height: 100vh; overflow: hidden; }
 
 /* ── Integrated root — content pane only (native draws window + sidebar) ───── */
 .htv2-root {
-  min-height: 100vh;
+  /* Bound to the window height so content scrolls INSIDE (the detail body and
+     grid have their own overflow), instead of growing past the native shell's
+     fixed-height webview and getting clipped by body{overflow:hidden}. */
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--v2-bg);
