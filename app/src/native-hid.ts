@@ -1,3 +1,5 @@
+import { markNativeTransport } from "@openmouse/protocol/drivers/razer/hid";
+
 // A `navigator.hid` layer for the small set of devices the real WebHID API
 // cannot reach at all — currently just the Razer Viper V3 Pro receiver,
 // confirmed on real hardware: Chrome/Electron's WebHID refuses to write a
@@ -290,10 +292,14 @@ export function isElectronHidBridge(): boolean {
  */
 export function tagNativeTransport<T extends HIDDevice>(devices: readonly T[]): readonly T[] {
   for (const device of devices) {
-    if ((device as unknown as { nativeTransport?: boolean }).nativeTransport === true) continue;
-    try {
-      Object.defineProperty(device, "nativeTransport", { value: true, configurable: true });
-    } catch { /* non-extensible device — cannot tag */ }
+    // The WeakSet marker works even on a frozen device object (the RC hands out
+    // frozen ones); the property assignment is a bonus for any other reader.
+    markNativeTransport(device);
+    if ((device as unknown as { nativeTransport?: boolean }).nativeTransport !== true) {
+      try {
+        Object.defineProperty(device, "nativeTransport", { value: true, configurable: true });
+      } catch { /* non-extensible device — the WeakSet marker above covers it */ }
+    }
   }
   return devices;
 }

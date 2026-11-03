@@ -165,8 +165,24 @@ const EXTENDED_LIGHTING_TRANSACTION_ID = RAZER_TRANSACTION_ID_1F;
  * depending on where the device object actually came from, without this
  * driver package importing anything from the app that uses it.
  */
+/**
+ * Devices the host app has marked native-reachable. A WeakSet is used because
+ * some native hosts (the WebView2 RC) hand out frozen HIDDevice objects that
+ * can't carry a `nativeTransport` property at all — a WeakSet keys on object
+ * identity, so it works regardless. The app adds a device here when it comes
+ * from its native HID bridge; see markNativeTransport().
+ */
+const nativeTransportMarked = new WeakSet<HIDDevice>();
+
+/** Mark a device native-reachable (called by the host app for devices from its
+    native HID bridge, e.g. the WebView2 RC). */
+export function markNativeTransport(device: HIDDevice): void {
+  nativeTransportMarked.add(device);
+}
+
 function isNativeTransportDevice(device: HIDDevice): boolean {
-  return (device as unknown as { nativeTransport?: boolean }).nativeTransport === true;
+  return (device as unknown as { nativeTransport?: boolean }).nativeTransport === true
+    || nativeTransportMarked.has(device);
 }
 
 /**
