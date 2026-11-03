@@ -157,7 +157,7 @@ import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
 import { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
 import { IncottHidClient } from "@openmouse/protocol/drivers/incott/hid";
 import { parsePreviewMode, previewsEnabled, type PreviewMode } from "../preview-modes";
-import { isNativeBridgeAvailable } from "../native-hid";
+import { isNativeBridgeAvailable, isElectronHidBridge, isWebView2Host, tagNativeTransport } from "../native-hid";
 import { sleepLabel } from "./options";
 import { traitsFor } from "./traits";
 import type {
@@ -1822,8 +1822,16 @@ async function probeOnce(device: HIDDevice, probe: () => Promise<boolean>): Prom
   }
 }
 
+/** navigator.hid.getDevices(), with RC devices tagged native-reachable so a
+    nativeOnly Razer survives a reload and shows in the sidebar there (the same
+    tag "Add mouse" applies). A no-op copy in a browser / Electron. */
+async function authorizedHidDevices(): Promise<HIDDevice[]> {
+  const all = (await navigator.hid?.getDevices()) ?? [];
+  return isWebView2Host() ? [...tagNativeTransport(all)] : all;
+}
+
 async function refreshSidebar(devices?: HIDDevice[]): Promise<void> {
-  const all = devices ?? await navigator.hid?.getDevices() ?? [];
+  const all = devices ?? await authorizedHidDevices();
   const candidates = listLogicalDevices(all);
   const confirmed = await Promise.all(candidates.map(async (device) => {
     // The active device is already a confirmed, live mouse connection —
@@ -1877,7 +1885,7 @@ async function waitForControllerIdle(): Promise<void> {
 async function resolveSidebarDevice(index: number): Promise<HIDDevice | null> {
   const entry = sidebarDevices[index];
   if (!entry) return null;
-  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
+  const devices = listLogicalDevices(await authorizedHidDevices());
   return devices.find((device) => deviceStorageKey(device) === entry.key) ?? null;
 }
 
@@ -2134,7 +2142,7 @@ function handleHidConnect(event: HIDConnectionEvent): void {
 
   if (isEggWeClient(client)) {
     void (async () => {
-      const all = await navigator.hid?.getDevices() ?? [];
+      const all = await authorizedHidDevices();
       await refreshSidebar(all);
       const result = await eggWeResolveConnect(event.device, eggWeClient(), activeDevice, all);
       if (result.action === "ignore") return;
@@ -2184,7 +2192,7 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
   showDisconnectedState();
   pushToast("info", st("ctl.mouseGone"), event.device.productName || st("ctl.deviceRemoved"));
   void (async () => {
-    const devices = (await navigator.hid?.getDevices() ?? [])
+    const devices = (await authorizedHidDevices())
       .filter((device) => device !== event.device);
     const logical = listLogicalDevices(devices);
     // Don't grab the first supported logical device: a webcam/keyboard can share
@@ -2233,12 +2241,20 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   // the user would just see an empty list. Add a broad Razer filter in the web
   // build so any Razer shows up and triggers the notice below. The desktop shell
   // keeps the stock filters — it drives Razer through the native bridge.
-  const webBuild = !isNativeBridgeAvailable();
-  const filters = webBuild
-    ? [...SUPPORTED_HID_FILTERS, { vendorId: VENDOR_ID.razer }]
-    : SUPPORTED_HID_FILTERS;
+  // Add the broad Razer filter whenever nativeOnly Razer reaches us through
+  // navigator.hid — the hosted browser (to show + explain) AND the WebView2 RC
+  // (to actually connect it). Only the Electron shell leaves it out, because it
+  // offers Razer through its separate node-hid bridge instead. (isNativeBridge-
+  // Available would be wrong here: it's true in the RC, which still needs this.)
+  const filters = isElectronHidBridge()
+    ? SUPPORTED_HID_FILTERS
+    : [...SUPPORTED_HID_FILTERS, { vendorId: VENDOR_ID.razer }];
   const devices = await navigator.hid.requestDevice({ filters });
   if (devices.length === 0) return null;
+  // In the RC, tag the picked devices native-reachable so the Razer driver's
+  // nativeOnly gate accepts them even if the navigator.hid method wrap didn't
+  // take (see tagNativeTransport). Harmless/no-op elsewhere.
+  if (isWebView2Host()) tagNativeTransport(devices);
 
   // Let WebHID-reachable Razer (most wired models) connect like any other mouse.
   // Only the nativeOnly receivers can't be driven without a native bridge — they
@@ -2375,7 +2391,7 @@ async function reconnectAuthorizedDevice(): Promise<void> {
       if (delay) await waitForHidChange(delay);
       if (hasActiveClient()) return;
 
-      const devices = await navigator.hid?.getDevices() ?? [];
+      const devices = await authorizedHidDevices();
       const logical = listLogicalDevices(devices);
       // A WebHID-reachable Razer granted in a past visit reconnects like any
       // other mouse; only a bridge-less nativeOnly Razer is skipped here (it

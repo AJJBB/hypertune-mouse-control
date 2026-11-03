@@ -263,27 +263,63 @@ export function installNativeHid(): void {
   installWebView2NativeTransport();
 }
 
+/** True in a WebView2 host (the .NET/WPF RC), where `window.chrome.webview` is
+    injected. A plain Chromium browser has `window.chrome` but no `.webview`. */
+export function isWebView2Host(): boolean {
+  return Boolean((window as unknown as { chrome?: { webview?: unknown } }).chrome?.webview);
+}
+
+/** True only in the Electron desktop shell, where the node-hid bridge is exposed
+    as `window.nativeHid`. Used to tell the Electron native path (a separate
+    HybridHid that merges Razer in itself) from the WebView2 RC, where Razer
+    still comes through `navigator.hid` and so must be offered in the picker. */
+export function isElectronHidBridge(): boolean {
+  return Boolean((window as unknown as { nativeHid?: NativeHidBridge }).nativeHid);
+}
+
+/**
+ * Mark each device native-reachable so the Razer driver's nativeOnly gate
+ * (isNativeTransportDevice → device.nativeTransport === true) accepts it in the
+ * RC. defineProperty rather than assignment so it survives a host that left the
+ * property non-writable; it still can't tag a fully non-extensible device, but
+ * the RC's HidSharp-backed device objects are plain and extensible.
+ *
+ * ONLY call this for devices from the RC's native navigator.hid — tagging a
+ * real-WebHID device in a browser would make the driver claim a nativeOnly Razer
+ * it cannot actually read.
+ */
+export function tagNativeTransport<T extends HIDDevice>(devices: readonly T[]): readonly T[] {
+  for (const device of devices) {
+    if ((device as unknown as { nativeTransport?: boolean }).nativeTransport === true) continue;
+    try {
+      Object.defineProperty(device, "nativeTransport", { value: true, configurable: true });
+    } catch { /* non-extensible device — cannot tag */ }
+  }
+  return devices;
+}
+
 /** Flags devices from a WebView2 host's native navigator.hid as native-reachable
-    (see installNativeHid). Safe even if the host happened to use built-in WebHID:
-    a nativeOnly model would then simply fail at connect as before, no regression. */
+    (see installNativeHid). Wraps getDevices/requestDevice so every enumeration is
+    tagged; the controller also tags at its own call sites in case a host left the
+    methods non-overridable. No-op outside a WebView2 host or under Electron. */
 function installWebView2NativeTransport(): void {
-  const webview = (window as unknown as { chrome?: { webview?: unknown } }).chrome?.webview;
+  if (!isWebView2Host() || !navigator.hid || isElectronHidBridge()) return;
   const hid = navigator.hid;
-  if (!webview || !hid) return;
-  // Already an Electron HybridHid (window.nativeHid present) — nothing to do.
-  if ((window as unknown as { nativeHid?: unknown }).nativeHid) return;
-  const tag = (devices: HIDDevice[]): HIDDevice[] => {
-    for (const device of devices) {
-      try { (device as unknown as { nativeTransport?: boolean }).nativeTransport = true; } catch { /* frozen */ }
-    }
-    return devices;
+  const getDevices = hid.getDevices.bind(hid);
+  const requestDevice = hid.requestDevice.bind(hid);
+  // defineProperty overrides a host method that is non-writable but configurable
+  // (plain assignment throws there); fall back to assignment, then give up and
+  // rely on the controller's call-site tagging.
+  const override = (name: "getDevices" | "requestDevice", fn: unknown): boolean => {
+    try { Object.defineProperty(hid, name, { value: fn, configurable: true, writable: true }); return true; }
+    catch { try { (hid as unknown as Record<string, unknown>)[name] = fn; return true; } catch { return false; } }
   };
+  const a = override("getDevices", async (): Promise<readonly HIDDevice[]> => tagNativeTransport(await getDevices()));
+  const b = override("requestDevice", async (options: { filters: HIDDeviceFilter[] }): Promise<readonly HIDDevice[]> => tagNativeTransport(await requestDevice(options)));
   try {
-    const getDevices = hid.getDevices.bind(hid);
-    const requestDevice = hid.requestDevice.bind(hid);
-    hid.getDevices = async (): Promise<HIDDevice[]> => tag(await getDevices());
-    hid.requestDevice = async (options: { filters: HIDDeviceFilter[] }): Promise<HIDDevice[]> => tag(await requestDevice(options));
-  } catch { /* navigator.hid methods not writable — leave as-is */ }
+    (window as unknown as { __htNativeHid?: unknown }).__htNativeHid = { webView2: true, wrappedGetDevices: a, wrappedRequestDevice: b };
+    console.info("[hypertune] WebView2 native HID — wrapped navigator.hid:", a && b);
+  } catch { /* console/window not writable */ }
 }
 
 /**
