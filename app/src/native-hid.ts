@@ -244,9 +244,46 @@ class HybridHid implements HID {
  * real WebHID (or lack of it) exactly as before.
  */
 export function installNativeHid(): void {
+  // 1) Electron desktop shell: merge the node-hid bridge exposed as
+  //    window.nativeHid (preload) into navigator.hid.
   const bridge = (window as unknown as { nativeHid?: NativeHidBridge }).nativeHid;
-  if (!bridge || !navigator.hid) return;
-  Object.defineProperty(navigator, "hid", { value: new HybridHid(navigator.hid, bridge), configurable: true });
+  if (bridge && navigator.hid) {
+    Object.defineProperty(navigator, "hid", { value: new HybridHid(navigator.hid, bridge), configurable: true });
+  }
+  // 2) WebView2 native shell (the .NET/WPF RC): the host already replaces
+  //    navigator.hid with its own native (HidSharp-backed) implementation —
+  //    WebHID-shaped, with real collections, able to reach devices Chromium
+  //    WebHID can't (nativeOnly Razer receivers). Those devices arrive WITHOUT
+  //    the `nativeTransport` flag our nativeOnly Razer driver gates on
+  //    (RazerHidClient.isSupported → isNativeTransportDevice), so the driver
+  //    refuses a model the host could actually drive. Tag every device the host
+  //    lists as native so those models are claimed and driven over the host
+  //    bridge. No-op outside a WebView2 host (window.chrome.webview absent), so
+  //    plain browsers and the Electron shell are unaffected.
+  installWebView2NativeTransport();
+}
+
+/** Flags devices from a WebView2 host's native navigator.hid as native-reachable
+    (see installNativeHid). Safe even if the host happened to use built-in WebHID:
+    a nativeOnly model would then simply fail at connect as before, no regression. */
+function installWebView2NativeTransport(): void {
+  const webview = (window as unknown as { chrome?: { webview?: unknown } }).chrome?.webview;
+  const hid = navigator.hid;
+  if (!webview || !hid) return;
+  // Already an Electron HybridHid (window.nativeHid present) — nothing to do.
+  if ((window as unknown as { nativeHid?: unknown }).nativeHid) return;
+  const tag = (devices: HIDDevice[]): HIDDevice[] => {
+    for (const device of devices) {
+      try { (device as unknown as { nativeTransport?: boolean }).nativeTransport = true; } catch { /* frozen */ }
+    }
+    return devices;
+  };
+  try {
+    const getDevices = hid.getDevices.bind(hid);
+    const requestDevice = hid.requestDevice.bind(hid);
+    hid.getDevices = async (): Promise<HIDDevice[]> => tag(await getDevices());
+    hid.requestDevice = async (options: { filters: HIDDeviceFilter[] }): Promise<HIDDevice[]> => tag(await requestDevice(options));
+  } catch { /* navigator.hid methods not writable — leave as-is */ }
 }
 
 /**
