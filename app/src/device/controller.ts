@@ -1929,6 +1929,33 @@ function clearActiveClients(): void {
   active = null;
 }
 
+/**
+ * The first readStatus after selecting a device is the flakiest call in the
+ * whole connect: a wireless mouse may still be waking, and on Logitech another
+ * app (Logi G HUB / Options+) can be mid-poll on the shared HID++ channel. Both
+ * are transient, so retry a few times with a short delay before giving up and
+ * dropping the user back to the empty state. (Driver-level readStatus has its
+ * own in-call retries; this outer loop covers a device that needs longer than a
+ * single call to answer.)
+ */
+const FIRST_READ_ATTEMPTS = 3;
+const FIRST_READ_RETRY_MS = 300;
+
+async function readStatusWithRetry(client: SupportedClient): Promise<MouseStatus> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= FIRST_READ_ATTEMPTS; attempt++) {
+    try {
+      return await client.readStatus();
+    } catch (error) {
+      lastError = error;
+      if (attempt < FIRST_READ_ATTEMPTS) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, FIRST_READ_RETRY_MS));
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function activateClientNow(client: SupportedClient): Promise<void> {
   while (refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
@@ -1956,7 +1983,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     if (pulsarClient() !== null) {
       await showPulsarExplorer(client as PulsarClient);
     } else {
-      const status = await client.readStatus();
+      const status = await readStatusWithRetry(client);
       dpiOptions = await client.getDpiOptions();
       // Capability flags gate the sleep / disable-sleep / debounce / low-power /
       // Teevolution cards. Previously only the Pulsar path set these, so on every
@@ -1990,6 +2017,14 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     // blocks reconnectAuthorizedDevice(), wedging the app half-connected. A
     // transient first read (common while a wireless mouse wakes up) hit this.
     if (active === client) {
+      // Surface the failure instead of silently dropping to the empty state.
+      // On Logitech the usual cause is another app holding the HID++ channel,
+      // so name Logi G HUB / Options+ directly.
+      if (client instanceof LogitechHidppClient) {
+        pushToast("error", st("ctl.connectFailed"), st("ctl.connectFailedLogitech"));
+      } else {
+        toastForError(st("ctl.connectFailed"), error);
+      }
       showDisconnectedState();
       emit();
     }

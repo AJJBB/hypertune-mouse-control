@@ -433,6 +433,8 @@ const en = {
   "ctl.readingPrev": "Reading the previously authorized device.",
   "ctl.useAdd": "Use Add device if the mouse does not reconnect automatically.",
   "ctl.couldNotReconnect": "Could not reconnect the mouse",
+  "ctl.connectFailed": "Couldn’t read the mouse",
+  "ctl.connectFailedLogitech": "Couldn’t read the mouse. If Logitech G HUB or Options+ is running, close it and try connecting again.",
   "ctl.dpiUnsupported": "That DPI value is not supported by this mouse.",
   "ctl.snappedStep": "{dpi} DPI is not a step this mouse can hold; set to the closest, {closest}.",
   "ctl.dpiNotSupported": "{dpi} DPI is not supported by this mouse.",
