@@ -39,17 +39,44 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   pulsar: SHARED_ADVANCED,
   teevolution: { ...SHARED_ADVANCED, teevolution: true },
   vgn: SHARED_ADVANCED,
+  // The only VGN driver reports ui.family "vgn-f2", which takes precedence over
+  // the BY_BRAND "vgn" fallback, so it needs its own entry or the F2 Master+
+  // shows no advanced section at all.
+  "vgn-f2": SHARED_ADVANCED,
   wlmouse: DIRECT_MODE,
+  // Beast X 4K reports ui.family "wlmouse-4k" (not the base "wlmouse") and backs
+  // the same direct-mode debounce/sleep/motion-sync setters.
+  "wlmouse-4k": DIRECT_MODE,
   lamzu: DIRECT_MODE,
+  // The Atlantis driver reports its own family and reads/writes debounce + sleep
+  // over its vendor protocol (not the CompX direct-mode transport).
+  "lamzu-atlantis": { advancedSection: true, sleep: true, debounce: true },
+  // Vendor-protocol drivers that set ui.showAdvancedSection but were missing
+  // from BY_FAMILY, so their Debounce/Sleep cards never rendered despite working
+  // setters. Each carries only the flags it actually backs.
+  motospeed: { advancedSection: true, sleep: true, debounce: true },
+  "glorious-core2": { advancedSection: true, debounce: true },
+  "cooler master": { advancedSection: true, debounce: true },
+  asus: { advancedSection: true, debounce: true },
+  hitscan: { advancedSection: true, debounce: true },
+  ajazz: { advancedSection: true, sleep: true },
+  "ajazz-ak820": { advancedSection: true, sleep: true },
+  ksnake: { advancedSection: true, sleep: true },
+  "steelseries-aerox3-wireless": { advancedSection: true, sleep: true },
   "attack-shark": DIRECT_MODE,
   crdrako: DIRECT_MODE,
   atk: DIRECT_MODE,
   "atk-bitmouse": DIRECT_MODE,
   ninjutso: { ...DIRECT_MODE, ninjutso: true },
   "keychron-nape": { advancedSection: true, sleep: true, directMode: true },
-  // The M6 reads debounce and sleep from its 0x06 status report and publishes
-  // its own option lists, so it takes the plain flags rather than DIRECT_MODE.
-  "keychron-m6": { advancedSection: true, sleep: true, debounce: true },
+  // Keychron M-series drivers emit these families (never "keychron-m6", which no
+  // driver ever reported). The 8k / 8k-nordic read debounce AND sleep from their
+  // status report; the 4k / 1k report debounce only. Each publishes its own
+  // option lists, so plain flags rather than DIRECT_MODE.
+  "keychron-8k": { advancedSection: true, sleep: true, debounce: true },
+  "keychron-8k-nordic": { advancedSection: true, sleep: true, debounce: true },
+  "keychron-4k": { advancedSection: true, debounce: true },
+  "keychron-1k": { advancedSection: true, debounce: true },
   fantech: { advancedSection: true, sleep: true, directMode: true },
   // GearHub-V5 (Attack Shark R2, Lingbao M5 Pro): reads debounce, standby time
   // and the two "move correction" toggles out of its OPTIONPARAM0 block. Not a
@@ -60,9 +87,9 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   // it is not a direct-mode (CompX) driver, so it takes the plain flags.
   mchose: { advancedSection: true, sleep: true, debounce: true },
   "mchose-a5-gen1": { advancedSection: true, sleep: true, debounce: true },
-  // "mchose-v3" is deliberately absent: that driver reads and cannot write, so
-  // every card these flags open would render controls with nothing behind
-  // them. Give it the same flags as `mchose` once it grows setters.
+  // MCHOSE v3 has grown verified setSleepTimeout/setDebounceTime, so it now takes
+  // the same flags as `mchose`.
+  "mchose-v3": { advancedSection: true, sleep: true, debounce: true },
   dareu: { advancedSection: true, sleep: true },
   // Incott supports a 0-30 ms debounce and a 1-900 s sleep timer over its own
   // vendor protocol, not the CompX direct-mode transport, so it takes the

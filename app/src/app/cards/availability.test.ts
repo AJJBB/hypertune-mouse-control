@@ -98,13 +98,46 @@ test("an Endgame Gear 8K mouse gets its own cards and loses signal and sleep", (
 
 test("Pulsar keeps the shared advanced cards", () => {
   const has = cardAvailability(snapshot({
-    status: { brand: "Pulsar", ui: { family: "pulsar" }, debounceMs: 4 },
+    status: { brand: "Pulsar", ui: { family: "pulsar" }, debounceMs: 4, sleepTimeout: 30 },
   }));
   assert.equal(has.advancedHost, true);
   assert.equal(has.signal, true);
   assert.equal(has.sleep, true);
   assert.equal(has.debounce, true);
   assert.equal(has.eggFilter, false);
+});
+
+test("a non-direct-mode family hides the Sleep card when no value is reported, but direct-mode keeps it", () => {
+  // Pulsar (non-direct-mode) with no sleepTimeout: the select would be dead, so hide it.
+  const pulsarNoSleep = cardAvailability(snapshot({
+    status: { brand: "Pulsar", ui: { family: "pulsar" }, debounceMs: 4 },
+  }));
+  assert.equal(pulsarNoSleep.sleep, false);
+  // A direct-mode family uses null to mean "sleep off" and carries an enable
+  // toggle, so the card stays.
+  const wlmouseOff = cardAvailability(snapshot({
+    status: { brand: "WLMouse", ui: { family: "wlmouse" } },
+  }));
+  assert.equal(wlmouseOff.sleep, true);
+});
+
+test("families formerly missing from BY_FAMILY now expose their advanced cards", () => {
+  const keychron8k = cardAvailability(snapshot({
+    status: { brand: "Keychron", ui: { family: "keychron-8k" }, debounceMs: 4, sleepTimeout: 60 },
+  }));
+  assert.equal(keychron8k.debounce, true);
+  assert.equal(keychron8k.sleep, true);
+  const vgnF2 = cardAvailability(snapshot({
+    status: { brand: "VGN", ui: { family: "vgn-f2" }, debounceMs: 2, sleepTimeout: 30 },
+  }));
+  assert.equal(vgnF2.debounce, true);
+  assert.equal(vgnF2.sleep, true);
+  // cooler master backs debounce only — no sleep card even with a stray value.
+  const coolerMaster = cardAvailability(snapshot({
+    status: { brand: "Cooler Master", ui: { family: "cooler master" }, debounceMs: 4, sleepTimeout: 30 },
+  }));
+  assert.equal(coolerMaster.debounce, true);
+  assert.equal(coolerMaster.sleep, false);
 });
 
 test("ATK exposes its processing and DPI-lighting cards from reported controls", () => {

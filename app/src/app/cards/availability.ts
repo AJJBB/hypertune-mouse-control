@@ -132,7 +132,14 @@ export function cardAvailability(snapshot: ControlSnapshot): CardAvailability {
     signal: host && traits.signal,
     debounce: host && traits.debounce
       && status.debounceMs !== null && status.debounceMs !== undefined,
-    sleep: host && (traits.sleep || razerSleep) && ui?.hideSleepCard !== true,
+    // Mirror the debounce gate: a non-direct-mode sleep family has only a
+    // timeout select (no enable toggle), so sleepTimeout:null there means the
+    // read missed and the card would render dead/disabled — hide it. Direct-mode
+    // families (and Razer) legitimately use null to mean "sleep off" and carry an
+    // enable toggle, so they keep showing.
+    sleep: host && (traits.sleep || razerSleep) && ui?.hideSleepCard !== true
+      && (traits.directMode || razerSleep
+        || (status.sleepTimeout !== null && status.sleepTimeout !== undefined)),
     lowPower: host && razerLowPower,
     processing: host && processing,
     ninjutsoSensor: host && traits.ninjutso
