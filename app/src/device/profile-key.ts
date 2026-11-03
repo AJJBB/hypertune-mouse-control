@@ -108,6 +108,16 @@ export function decodeProfileKey(rawKey: string): DecodeResult {
   ) {
     return { ok: false, error: "This key is from an incompatible app version." };
   }
+  // Type-check the collection fields the importer iterates: a structurally valid
+  // key with dpiStages/lighting of the wrong type would otherwise throw mid-import
+  // and half-stage changes with no feedback.
+  const p = payload as Record<string, unknown>;
+  if ("dpiStages" in p && (!Array.isArray(p.dpiStages) || p.dpiStages.some((n) => typeof n !== "number"))) {
+    return { ok: false, error: "This key is from an incompatible app version." };
+  }
+  if ("lighting" in p && !Array.isArray(p.lighting)) {
+    return { ok: false, error: "This key is from an incompatible app version." };
+  }
   return { ok: true, payload: payload as ProfileKeyPayload };
 }
 

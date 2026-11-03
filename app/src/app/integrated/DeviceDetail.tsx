@@ -939,6 +939,10 @@ function MouseTestBody(): ReactNode {
     const onDown = (e: MouseEvent): void => {
       const n = testButtonName(e.button);
       if (!n) return;
+      // Don't count clicks that operate the tester's own controls (Start, the
+      // duration buttons, Run again, the tab bar) — only real presses on the
+      // page/test surface are the mouse under test.
+      if ((e.target as Element | null)?.closest('button, a, input, select, textarea, [role="tab"]')) return;
       setCounts((c) => { const next = { ...c }; next[n] = c[n] + 1; return next; });
       setPressed(n);
     };

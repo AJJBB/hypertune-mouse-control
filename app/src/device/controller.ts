@@ -245,6 +245,13 @@ const napeKeymaps = new Map<number, KeychronNapeLayerKeymap>();
 const stagedNapeAssignments = new Map<string, StagedNapeAssignment>();
 let keymapReadToken = 0;
 let onboardProfilesLoading = false;
+/** When the last auto-read of onboard profiles was attempted. A failed read
+    leaves onboardProfiles null, and the status tick fires on every battery/signal
+    update, so without a backoff a Logitech mouse whose profile channel is
+    contended (G HUB open) would re-read on every tick, spamming the channel and
+    flickering the status. Reset to 0 on a new device for an immediate first read. */
+let lastOnboardReadAt = 0;
+const ONBOARD_RETRY_MS = 10_000;
 let lastDeviceMode: MouseStatus["deviceMode"] = "Unknown";
 let lastProfileFormat: MouseStatus["onboardProfileFormat"] = null;
 
@@ -1076,6 +1083,13 @@ export function applyButtonMapping(controlId: number, targetControlId: number): 
   if (!logitechClient()) return;
   const control = buttons?.find((candidate) => candidate.controlId === controlId);
   if (!control) return;
+  // Mirror stageChange's guard before touching the side-map: otherwise a remap
+  // made during an in-flight flash mutates stagedButtonMappings but stageChange
+  // early-returns, orphaning an entry the UI shows as applied but never writes.
+  if (settingInProgress) {
+    setReadStatus(st("ctl.waitFlash"));
+    return;
+  }
   if (control.mappedTo === targetControlId) {
     stagedButtonMappings.delete(controlId);
     dropPendingChange(`button-${controlId}`);
@@ -1717,8 +1731,10 @@ function applyStatusInner(deviceStatus: MouseStatus, statusKey?: string): void {
   if (supportsOnboard) {
     lastDeviceMode = status.deviceMode;
     lastProfileFormat = status.onboardProfileFormat ?? null;
-    if (onboardProfiles === null && !onboardProfilesLoading) void reloadOnboardProfiles();
-    else syncProfileDerivedState();
+    if (onboardProfiles === null && !onboardProfilesLoading && Date.now() - lastOnboardReadAt >= ONBOARD_RETRY_MS) {
+      lastOnboardReadAt = Date.now();
+      void reloadOnboardProfiles();
+    } else if (onboardProfiles !== null) syncProfileDerivedState();
   }
   syncEditedNapeLayer(deviceStatus);
 
@@ -1986,6 +2002,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   if (activeDevice !== client.device) {
     onboardProfiles = null;
     editedNapeLayer = null;
+    lastOnboardReadAt = 0;
   }
   buttons = null;
   clearNapeKeymaps();
@@ -2031,6 +2048,11 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
     setConnectionButtons(false, "Add device");
     pushToast("success", st("ctl.connectedTo", { name: statusNameForClient(client) }));
   } catch (error) {
+    // Release the HID handle the activation may have opened (client.open() runs
+    // for NEEDS_OPEN drivers before the first read): leaving it open after a
+    // failed read wedges the next reconnect and blocks other apps from the
+    // device. reconnectAuthorizedDevice already closes on its own failures.
+    await client.close().catch(() => undefined);
     // A failed activation must not leave the closed/failed client as the active
     // one: that keeps hasActiveClient() true forever, hides the empty state and
     // blocks reconnectAuthorizedDevice(), wedging the app half-connected. A
@@ -2165,9 +2187,22 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
     const devices = (await navigator.hid?.getDevices() ?? [])
       .filter((device) => device !== event.device);
     const logical = listLogicalDevices(devices);
-    const replacement = logical
-      .map(createSupportedClient)
-      .find((client): client is SupportedClient => client !== null);
+    // Don't grab the first supported logical device: a webcam/keyboard can share
+    // a supported vendor's transport. Confirm each is really a mouse, skip a
+    // bridge-less nativeOnly Razer, and prefer the previously-active device —
+    // the same selection reconnectAuthorizedDevice uses.
+    const webBuild = !isNativeBridgeAvailable();
+    const preferredKey = storedActiveDeviceKey();
+    const candidates = (await Promise.all(logical
+      .filter((device) => !(webBuild && isNativeOnlyRazer(device)))
+      .map(async (device) => {
+        const client = createSupportedClient(device);
+        if (!client || !(await isConfirmedMouse(device, client))) return null;
+        return { client, preferred: deviceStorageKey(device) === preferredKey, score: clientSupportScore(device) };
+      })))
+      .filter((entry): entry is { client: SupportedClient; preferred: boolean; score: number } => entry !== null)
+      .sort((left, right) => Number(right.preferred) - Number(left.preferred) || right.score - left.score);
+    const replacement = candidates[0]?.client;
     if (replacement) {
       await activateClient(replacement);
     } else {
