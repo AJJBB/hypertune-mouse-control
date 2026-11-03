@@ -93,10 +93,11 @@ test("Attack Shark R2 resolves by name (PID 0x402D is shared with the M5 Pro)", 
   // device-images.ts / public/devices/README.md) until a maintainer uploads
   // attackshark-r2.png to R2; then it returns CDN + "attackshark-r2.png" again.
   assert.equal(deviceImage(null, "Attack Shark R2"), "/devices/attackshark-r2.png");
-  // The shared receiver PID must NOT resolve to the R2 render.
+  // The shared receiver PID must NOT resolve to the R2 render; the Lingbao
+  // M5 Pro now resolves to its own render by name.
   assert.equal(
     deviceImage(dev(0x3151, 0x402d), "Lingbao M5 Pro"),
-    CDN + "unknown-device.png",
+    CDN + "lingbao-m5-pro.png",
   );
 });
 
@@ -190,11 +191,10 @@ test("Endgame Gear XM2 8K and XM2w resolve to their own renders", () => {
   assert.equal(deviceImage(null, "Endgame Gear XM2w 4K"), CDN + "endgame-gear-xm2w.png");
 });
 
-test("WLMouse Beast X / Beast Mini / Beast X Pro have no render and fall back to unknown", () => {
-  assert.equal(deviceImage(null, "WLMouse Beast X"), CDN + "unknown-device.png");
-  assert.equal(deviceImage(null, "WLMouse Beast Mini"), CDN + "unknown-device.png");
-  assert.equal(deviceImage(null, "WLMouse Beast X Pro"), CDN + "unknown-device.png");
-  // Sword X keeps its render.
+test("WLMouse Beast X / Beast Mini / Beast X Pro resolve to their own renders", () => {
+  assert.equal(deviceImage(null, "WLMouse Beast X"), CDN + "wlmouse-beast-x.png");
+  assert.equal(deviceImage(null, "WLMouse Beast Mini"), CDN + "wlmouse-beast-mini.png");
+  assert.equal(deviceImage(null, "WLMouse Beast X Pro"), CDN + "wlmouse-beast-x-pro.png");
   assert.equal(deviceImage(null, "WLMouse Sword X"), CDN + "wlmouse-sword-x.png");
 });
 
@@ -204,8 +204,8 @@ test("VGN Dragonfly F2 Master+, Lamzu Maya X, ATK F1 V2, Orbital and moddo resol
   assert.equal(deviceImage(null, "ATK F1 V2 Ultra Max"), CDN + "atk-f1-v2-ultra-max.png");
   // Orbital has no product render yet; it resolves to the generic placeholder.
   assert.equal(deviceImage(null, "Orbital Ghost"), CDN + "unknown-device.png");
-  // moddo has no product render yet; it resolves to the generic placeholder.
-  assert.equal(deviceImage(null, "moddoMOUSE"), CDN + "unknown-device.png");
+  // moddo now has its own render (its driver reports the hardcoded "moddoMOUSE").
+  assert.equal(deviceImage(null, "moddoMOUSE"), CDN + "moddomouse-moddomouse.png");
 });
 
 test("Finalmouse Starlight-12 / ULX resolves by name", () => {
@@ -213,11 +213,15 @@ test("Finalmouse Starlight-12 / ULX resolves by name", () => {
   assert.equal(deviceImage(null, "Finalmouse ULX"), CDN + "finalmouse-ulx.png");
 });
 
-test("test-needed and unsupported models are not given new artwork", () => {
-  assert.equal(deviceImage(null, "Razer Basilisk V3"), CDN + "unknown-device.png");
-  assert.equal(deviceImage(null, "Endgame Gear OP1w 4K v2"), CDN + "unknown-device.png");
+test("models with newly committed art resolve; genuinely unsupported stay on the placeholder", () => {
+  // Art for these arrived in the device-art pack, reconciled against each
+  // driver's reported name, so they now resolve to their own render.
+  assert.equal(deviceImage(null, "Razer Basilisk V3"), CDN + "razer-basilisk-v3.png");
+  assert.equal(deviceImage(null, "Endgame Gear OP1w 4K v2"), CDN + "endgame-gear-op1w-4k-v2.png");
+  // The Viper 8KHz shares the original Viper's shell (the pack maps it there).
+  assert.equal(deviceImage(null, "Razer Viper 8KHz"), CDN + "razer-viper.webp");
+  // Still no render for this one — stays on the placeholder.
   assert.equal(deviceImage(null, "VGN Dragonfly R1 Pro"), CDN + "unknown-device.png");
-  assert.equal(deviceImage(null, "Razer Viper 8KHz"), CDN + "unknown-device.png");
 });
 
 test("models synced from upstream OpenMouse resolve to their own renders", () => {
@@ -251,16 +255,18 @@ test("a mouse behind a shared WLMouse receiver resolves by name", () => {
   const receiver = { vendorId: 0x36a7, productId: 0xa882 } as HIDDevice;
   assert.equal(deviceImage(receiver, "WLmouse Beast Max"), CDN + "wlmouse-beast-max.png");
   assert.equal(deviceImage(receiver, "WLmouse Beast G"), CDN + "wlmouse-beast-g.png");
-  assert.equal(deviceImage(receiver, "WLmouse Beast Mini"), CDN + "unknown-device.png");
+  assert.equal(deviceImage(receiver, "WLmouse Beast Mini"), CDN + "wlmouse-beast-mini.png");
 });
 
 test("K-snake X11 resolves by name regardless of transport", () => {
   assert.equal(deviceImage(null, "K-snake X11"), CDN + "ksnake-x11.png");
 });
 
-test("Attack Shark X11 does not inherit K-snake artwork", () => {
-  assert.equal(deviceImage(null, "Attack Shark X11"), CDN + "unknown-device.png");
-  assert.equal(deviceImage(null, "Attack Shark X11 SE"), CDN + "unknown-device.png");
+test("Attack Shark X11 resolves to its own render, not K-snake's", () => {
+  assert.equal(deviceImage(null, "Attack Shark X11"), CDN + "attack-shark-x11.png");
+  assert.equal(deviceImage(null, "Attack Shark X11 SE"), CDN + "attack-shark-x11.png");
+  // K-snake X11 keeps its own distinct render.
+  assert.equal(deviceImage(null, "K-snake X11"), CDN + "ksnake-x11.png");
 });
 
 test("the MCHOSE A7 V3 family gets its own render, not the V2's", () => {
@@ -323,6 +329,24 @@ test("the wired product string resolves the same render as the read model", () =
   // string — "Esports G23V2Pro", no separators at all.
   assert.equal(deviceImage(null, "Esports G23V2Pro"), CDN + "incott-g23-v2-pro.png");
   assert.equal(deviceImage(null, "incott Esports G23V2Pro mouse"), CDN + "incott-g23-v2-pro.png");
+});
+
+test("the generated art map resolves representative models across brands by name", () => {
+  // Spot checks against the reconcile-mouse-art map (device-art-generated.ts),
+  // which is keyed on each driver's real reported name. Variants that share a
+  // shell share a file; distinct shells get their own.
+  assert.equal(deviceImage(null, "ATK A9 Ultra"), CDN + "atk-a9.png");
+  assert.equal(deviceImage(null, "ATK A9 Wireless Charging"), CDN + "atk-a9-charging.png");
+  assert.equal(deviceImage(null, "Keychron M3"), CDN + "keychron-m3.png");
+  assert.equal(deviceImage(null, "Keychron M3 Mini"), CDN + "keychron-m3-mini.png");
+  assert.equal(deviceImage(null, "Lingbao M5 Pro"), CDN + "lingbao-m5-pro.png");
+  assert.equal(deviceImage(null, "moddoMOUSE"), CDN + "moddomouse-moddomouse.png");
+  // Casing and separators are normalized away, so a driver that reports a
+  // lower-case brand still resolves.
+  assert.equal(deviceImage(null, "WLmouse Beast X"), CDN + "wlmouse-beast-x.png");
+  assert.equal(deviceImage(null, "WLMOUSE BEAST X"), CDN + "wlmouse-beast-x.png");
+  // A name with no map entry and no hand-written rule stays on the placeholder.
+  assert.equal(deviceImage(null, "Totally Unknown Mouse 9000"), CDN + "unknown-device.png");
 });
 
 test("Incott names do not collide with other brands' renders", () => {

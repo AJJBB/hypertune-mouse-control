@@ -1,3 +1,5 @@
+import { DEVICE_ART_BY_NAME, DEVICE_ART_BY_VENDOR_NAME, normDeviceName } from "./device-art-generated.ts";
+
 /**
  * Top-down product art for the persistent device panel.
  *
@@ -18,7 +20,23 @@
  * before any art existed.
  */
 
-function resolveDeviceImageFilename(_device: HIDDevice | null | undefined, displayName = ""): string {
+function resolveDeviceImageFilename(device: HIDDevice | null | undefined, displayName = ""): string {
+  // Generated art map — exact (normalized) reported-name → committed render,
+  // reconciled against each driver's real status.name (see
+  // device-art-generated.ts, built by the reconcile-mouse-art workflow). Checked
+  // first so any model with its own render resolves straight to it; a name not in
+  // the map drops through to the hand-written rules below. Disjoint from those
+  // rules by construction (it only holds models that previously had no art), so
+  // it never overrides a deliberately-tuned rule — only fills the gaps.
+  const artKey = normDeviceName(displayName);
+  if (artKey) {
+    if (device) {
+      const byVendor = DEVICE_ART_BY_VENDOR_NAME.get(`${device.vendorId}:${artKey}`);
+      if (byVendor) return byVendor;
+    }
+    const byName = DEVICE_ART_BY_NAME.get(artKey);
+    if (byName) return byName;
+  }
   // Lightspeed receivers are shared product IDs, so paired G502 X variants
   // must use the friendly name read from the mouse itself.
   if (/g502\s*x\s*plus/i.test(displayName)) return "logitech-g502-x-plus.png";
