@@ -4155,8 +4155,10 @@ body { height: 100vh; overflow: hidden; }
 .htv2-popup-retry svg { color: var(--v2-text-dim); }
 
 /* ── Mouse Test section (Figma "Mouse - Mouse Test") ───────────────────────── */
-.htv2-test { flex: 0 0 auto; display: flex; flex-direction: column; gap: 18px; padding-bottom: 4px; overflow-x: clip; }
-.htv2-test-rig { flex: 0 0 auto; display: flex; align-items: center; }
+.htv2-test { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 18px; padding-bottom: 4px; overflow-x: clip; }
+/* The rig absorbs the panel's spare height so the counters + hint always sit at
+   the bottom without a scrollbar; the wave box stretches to fill it. */
+.htv2-test-rig { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; }
 .htv2-test-cable {
   position: relative; flex: 1 1 auto; min-width: 20px; height: 12px;
   background: linear-gradient(180deg, #3a3f41, #16191a 55%, #0a0c0d);
@@ -4170,7 +4172,7 @@ body { height: 100vh; overflow: hidden; }
 .htv2-test-cable-l .htv2-test-plug { right: -8px; border-radius: 10px 7px 7px 10px; }
 .htv2-test-cable-r .htv2-test-plug { left: -8px; border-radius: 7px 10px 10px 7px; }
 .htv2-test-wave {
-  position: relative; flex: 0 1 900px; min-width: 0; height: clamp(230px, 34vh, 300px);
+  position: relative; flex: 0 1 900px; min-width: 0; align-self: stretch; min-height: 200px;
   display: grid; place-items: center; overflow: hidden;
   border-radius: 24px; border: 1px solid #ffffff1a;
   background: radial-gradient(90% 130% at 50% 50%, rgba(19, 242, 135, .10), rgba(19, 242, 135, 0) 58%), linear-gradient(180deg, #16191b, #0e1113);
