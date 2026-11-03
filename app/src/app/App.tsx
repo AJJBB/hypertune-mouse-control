@@ -59,7 +59,7 @@ export function App(): ReactNode {
   // native app draws the window, sidebar and "Tools / Mouse Control" breadcrumb.
   if (isIntegratedMode()) {
     return (
-      <div className="htv2-root" data-interface-theme={interfaceThemeSlug(preferences.theme)}>
+      <div className={`htv2-root${preferences.reducedMotion ? " reduce-interface-motion" : ""}`} data-interface-theme={interfaceThemeSlug(preferences.theme)}>
         {showHub ? (
           <div className="htv2-content"><ToolsHub snapshot={snapshot} onOpenMouse={() => setShowHub(false)} /></div>
         ) : snapshot.deviceView === "device" && snapshot.status !== null ? (

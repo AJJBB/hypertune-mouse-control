@@ -90,8 +90,8 @@ function Segmented({ options, value, onChange, equal = true }: {
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }): ReactNode {
   return (
     <div className="htv2-toggle">
-      <button type="button" className={`htv2-toggle-opt${!value ? " is-on" : ""}`} onClick={() => onChange(false)}>Off</button>
-      <button type="button" className={`htv2-toggle-opt${value ? " is-on" : ""}`} onClick={() => onChange(true)}>On</button>
+      <button type="button" aria-pressed={!value} className={`htv2-toggle-opt${!value ? " is-on" : ""}`} onClick={() => onChange(false)}>Off</button>
+      <button type="button" aria-pressed={value} className={`htv2-toggle-opt${value ? " is-on" : ""}`} onClick={() => onChange(true)}>On</button>
     </div>
   );
 }
@@ -229,6 +229,7 @@ function DpiPanel({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
             <button
               key={p}
               type="button"
+              aria-pressed={s.dpi === p}
               className={`htv2-dpi-preset${s.dpi === p ? " is-on" : ""}`}
               onClick={() => control.applyCustomDpi(p)}
             >
@@ -277,11 +278,12 @@ function PerformanceBody({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
   );
 }
 
-function Slider({ min, max, value, onChange }: { min: number; max: number; value: number; onChange: (v: number) => void }): ReactNode {
+function Slider({ min, max, value, onChange, ariaLabel }: { min: number; max: number; value: number; onChange: (v: number) => void; ariaLabel?: string }): ReactNode {
   const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
   return (
     <input
       type="range" min={min} max={max} value={value}
+      aria-label={ariaLabel}
       className="htv2-slider"
       style={{ "--pct": `${pct}%` } as CSSProperties}
       onChange={(e) => onChange(Number(e.currentTarget.value))}
@@ -341,7 +343,7 @@ function LightingBody({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
             {z.modes.map((m) => {
               const Icon = effectIcon(m);
               return (
-                <button key={m} type="button" className={`htv2-fx-btn${m === mode ? " is-on" : ""}`} onClick={() => apply({ mode: m })}>
+                <button key={m} type="button" aria-pressed={m === mode} className={`htv2-fx-btn${m === mode ? " is-on" : ""}`} onClick={() => apply({ mode: m })}>
                   <Icon size={20} strokeWidth={1.8} />
                   <span>{m}</span>
                 </button>
@@ -350,18 +352,18 @@ function LightingBody({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           </div>
         </Section>
         {(levels.length > 0 || (usesSpeed && speeds.length > 0) || usesColor) ? (
-          <Section title="Color">
+          <Section title={usesColor ? "Color" : "Adjustments"}>
             {levels.length > 0 ? (
               <div className="htv2-lrow">
                 <span className="htv2-lrow-label"><Sun size={16} strokeWidth={1.8} /> Brightness</span>
-                <Slider min={levels[0]} max={levels[levels.length - 1]} value={z.brightness ?? levels[0]} onChange={(v) => apply({ brightness: nearest(levels, v) })} />
+                <Slider ariaLabel="Brightness" min={levels[0]} max={levels[levels.length - 1]} value={z.brightness ?? levels[0]} onChange={(v) => apply({ brightness: nearest(levels, v) })} />
                 <span className="htv2-lrow-val">{z.brightness ?? "—"}%</span>
               </div>
             ) : null}
             {usesSpeed && speeds.length > 0 ? (
               <div className="htv2-lrow">
                 <span className="htv2-lrow-label"><Zap size={16} strokeWidth={1.8} /> Speed</span>
-                <Slider min={speeds[0]} max={speeds[speeds.length - 1]} value={z.speed ?? speeds[0]} onChange={(v) => apply({ speed: nearest(speeds, v) })} />
+                <Slider ariaLabel="Speed" min={speeds[0]} max={speeds[speeds.length - 1]} value={z.speed ?? speeds[0]} onChange={(v) => apply({ speed: nearest(speeds, v) })} />
                 <span className="htv2-lrow-val">{z.speed ?? "—"}</span>
               </div>
             ) : null}
@@ -369,12 +371,12 @@ function LightingBody({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
               <>
                 <div className="htv2-lrow">
                   <span className="htv2-lrow-label"><Palette size={16} strokeWidth={1.8} /> Color</span>
-                  <input type="range" min={0} max={360} value={hexToHue(color)} className="htv2-slider htv2-hue" onChange={(e) => apply({ color: hslToHex(Number(e.currentTarget.value)) })} />
+                  <input type="range" min={0} max={360} value={hexToHue(color)} aria-label="Color hue" className="htv2-slider htv2-hue" onChange={(e) => apply({ color: hslToHex(Number(e.currentTarget.value)) })} />
                   <span className="htv2-lrow-val htv2-color-val"><i style={{ background: color }} />{color.toUpperCase()}</span>
                 </div>
                 <div className="htv2-swatches">
                   {LIGHT_SWATCHES.map((c) => (
-                    <button key={c} type="button" className={`htv2-swatch${color.toLowerCase() === c ? " is-on" : ""}`} style={{ background: c }} onClick={() => apply({ color: c })} aria-label={c} />
+                    <button key={c} type="button" aria-pressed={color.toLowerCase() === c} className={`htv2-swatch${color.toLowerCase() === c ? " is-on" : ""}`} style={{ background: c }} onClick={() => apply({ color: c })} aria-label={`Set color ${c.toUpperCase()}`} />
                   ))}
                 </div>
               </>
@@ -490,19 +492,32 @@ function CalloutCard({ row, side, active, onToggle, onPick, style }: {
   style?: CSSProperties;
 }): ReactNode {
   return (
-    <div className={`htv2-btn-callout htv2-btn-${side}${active ? " is-active" : ""}`} style={style}>
-      <button type="button" className="htv2-btn-card" disabled={row.fixed} onClick={onToggle}>
+    <div
+      className={`htv2-btn-callout htv2-btn-${side}${active ? " is-active" : ""}`}
+      style={style}
+      onKeyDown={(e) => { if (active && e.key === "Escape") { e.stopPropagation(); onToggle(); } }}
+    >
+      <button
+        type="button"
+        className="htv2-btn-card"
+        disabled={row.fixed}
+        aria-haspopup={row.fixed ? undefined : "menu"}
+        aria-expanded={row.fixed ? undefined : active}
+        onClick={onToggle}
+      >
         <span className="htv2-btn-name">{row.name}</span>
         <span className="htv2-btn-action">{row.action}</span>
       </button>
       {active && !row.fixed ? (
         <>
           <div className="htv2-btn-scrim" onClick={onToggle} />
-          <ul className={`htv2-btn-menu htv2-btn-menu-${side}`}>
+          <ul className={`htv2-btn-menu htv2-btn-menu-${side}`} role="menu" aria-label={`${row.name} action`}>
             {row.options.map((opt) => (
-              <li key={opt}>
+              <li key={opt} role="none">
                 <button
                   type="button"
+                  role="menuitemradio"
+                  aria-checked={opt === row.action}
                   className={`htv2-btn-opt${opt === row.action ? " is-on" : ""}`}
                   onClick={() => onPick(opt)}
                 >
@@ -1068,7 +1083,7 @@ function MouseTestBody(): ReactNode {
         {phase === "idle" ? (
           <div className="htv2-test-durs" role="group" aria-label="Test duration">
             {([5, 8, 10] as const).map((d) => (
-              <button key={d} type="button" className={`htv2-test-dur${duration === d ? " is-on" : ""}`} onClick={() => setDuration(d)}>{d}s</button>
+              <button key={d} type="button" aria-pressed={duration === d} className={`htv2-test-dur${duration === d ? " is-on" : ""}`} onClick={() => setDuration(d)}>{d}s</button>
             ))}
           </div>
         ) : phase === "sampling" ? (
@@ -1204,7 +1219,7 @@ function OverviewBody({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
           {fw.length === 1 ? <OvRow label="Firmware" value={fw[0]!} /> : null}
           {fw.length >= 2 ? <OvRow label="Mouse firmware" value={fw[0]!} /> : null}
           {fw.length >= 2 ? <OvRow label="Dongle firmware" value={fw[1]!} /> : null}
-          {s.profileCount ? <OvRow label="Onboard memory" value={`${s.profileCount} profiles`} /> : null}
+          {s.profileCount ? <OvRow label="Onboard memory" value={`${s.profileCount} ${s.profileCount === 1 ? "profile" : "profiles"}`} /> : null}
         </div>
       </div>
     </div>
