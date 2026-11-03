@@ -287,11 +287,16 @@ function installWebView2NativeTransport(): void {
 }
 
 /**
- * True only inside the Hypertune desktop shell, where the Electron preload has
- * exposed the native `node-hid` bridge. The plain hosted web app (any browser,
- * including the Chromium ones that have WebHID) returns false — it has no
- * native path, so Razer's protected control channel is out of reach there.
+ * True inside either native shell that can reach Razer's protected control
+ * channel: the Electron desktop shell (node-hid bridge on `window.nativeHid`),
+ * and the WebView2 RC, which replaces `navigator.hid` with its own native
+ * (HidSharp-backed) implementation — `installWebView2NativeTransport()` tags its
+ * devices so the Razer driver claims them. `window.chrome.webview` is present
+ * only in a WebView2 host (a plain Chromium browser has `window.chrome` but no
+ * `.webview`), so the hosted web app in an ordinary browser still returns false
+ * and the nativeOnly Razer notice shows there, where it is correct.
  */
 export function isNativeBridgeAvailable(): boolean {
-  return Boolean((window as unknown as { nativeHid?: NativeHidBridge }).nativeHid);
+  const scope = window as unknown as { nativeHid?: NativeHidBridge; chrome?: { webview?: unknown } };
+  return Boolean(scope.nativeHid) || Boolean(scope.chrome?.webview && navigator.hid);
 }
