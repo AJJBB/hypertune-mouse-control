@@ -1854,9 +1854,9 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
   const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
   const device = devices[index];
   if (!device) return;
-  // Same web-beta block as the picker: a Razer mouse granted earlier can still be
-  // sitting in the list, but the hosted web build has no way to drive it.
-  if (!isNativeBridgeAvailable() && device.vendorId === VENDOR_ID.razer) {
+  // Only a nativeOnly Razer (e.g. the Viper V3 Pro receiver) can't be driven
+  // without a native bridge; WebHID-reachable Razer connect like any other mouse.
+  if (!isNativeBridgeAvailable() && isNativeOnlyRazer(device)) {
     razerWebNoticeOpen = true;
     emit();
     return;
@@ -2109,6 +2109,16 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
   });
 }
 
+/** A Razer model whose control channel the browser cannot reach at all (e.g.
+    the Viper V3 Pro / Viper Ultimate wireless receivers) — flagged nativeOnly in
+    the driver product table. Only these need the native bridge; every other
+    Razer drives over plain WebHID, so they must not be blocked wholesale. */
+function isNativeOnlyRazer(device: HIDDevice): boolean {
+  if (device.vendorId !== VENDOR_ID.razer) return false;
+  const product = RAZER_PRODUCTS.get(device.productId) as { nativeOnly?: boolean } | undefined;
+  return product?.nativeOnly === true;
+}
+
 async function requestSupportedClient(): Promise<SupportedClient | null> {
   if (!navigator.hid) throw new Error(st("ctl.noWebHid"));
   // In the hosted web beta, Razer is held back (see below), but the user should
@@ -2125,17 +2135,10 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
   const devices = await navigator.hid.requestDevice({ filters });
   if (devices.length === 0) return null;
 
-  // Razer is intentionally held back in the hosted web beta. Most Razer models
-  // need the desktop shell's native bridge (WebHID can't reach their control
-  // channel), and a few that do work over WebHID aren't worth a split story for
-  // the beta — so Razer uniformly points people at the app. Show that notice
-  // instead of attempting a connection that would mostly dead-end.
-  if (webBuild && devices.some((device) => device.vendorId === VENDOR_ID.razer)) {
-    razerWebNoticeOpen = true;
-    emit();
-    return null;
-  }
-
+  // Let WebHID-reachable Razer (most wired models) connect like any other mouse.
+  // Only the nativeOnly receivers can't be driven without a native bridge — they
+  // fall through to the nativeOnly branch below, which explains why. (Matches
+  // OpenMouse, which never blocks the whole Razer vendor.)
   if (devices.some((device) => eggWeIsSupported(device))) {
     const weClient = eggWeFromAuthorized(await eggWeAuthorizedPool(devices));
     if (weClient) return weClient;
@@ -2269,18 +2272,13 @@ async function reconnectAuthorizedDevice(): Promise<void> {
 
       const devices = await navigator.hid?.getDevices() ?? [];
       const logical = listLogicalDevices(devices);
-      // Web beta: a Razer granted in a past visit reaches the reconnect path on
-      // load. Surface the notice here too (not just in the picker / tile click),
-      // instead of silently connecting a WebHID-capable Razer or throwing a
-      // generic reconnect error. Non-Razer devices still reconnect as normal.
+      // A WebHID-reachable Razer granted in a past visit reconnects like any
+      // other mouse; only a bridge-less nativeOnly Razer is skipped here (it
+      // can't be driven, and the notice is shown when the user actively picks it).
       const webBuild = !isNativeBridgeAvailable();
-      if (webBuild && !razerWebNoticeOpen && logical.some((device) => device.vendorId === VENDOR_ID.razer)) {
-        razerWebNoticeOpen = true;
-        emit();
-      }
       const preferredKey = storedActiveDeviceKey();
       const clients = logical
-        .filter((device) => !webBuild || device.vendorId !== VENDOR_ID.razer)
+        .filter((device) => !(webBuild && isNativeOnlyRazer(device)))
         .map((device) => ({
           client: createSupportedClient(device),
           preferred: deviceStorageKey(device) === preferredKey,
