@@ -106,7 +106,7 @@ import { PulsarHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-hid";
 import { PulsarProHidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-pro-hid";
 import { PulsarXs1HidClient } from "@openmouse/protocol/drivers/pulsar/pulsar-xs1-hid";
 import { OrbitalHidClient } from "@openmouse/protocol/drivers/orbital/hid";
-import { RazerHidClient, razerProbeControlInterface } from "@openmouse/protocol/drivers/razer/hid";
+import { RazerHidClient, razerProbeControlInterface, markNativeTransport } from "@openmouse/protocol/drivers/razer/hid";
 import {
   RAZER_BUTTON_CONTROL_LABEL,
   RAZER_TOGGLE_CONTROL_INFO,
@@ -2285,10 +2285,18 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
     return product?.nativeOnly === true;
   });
   if (nativeOnly) {
+    // In the RC we CAN reach this device's protected collection, so drive it
+    // instead of showing the browser-only notice. createSupportedClient failed
+    // above only because the lib's shape check assumes a browser exposes a
+    // single mouse collection — which need not hold for the RC's native HID — so
+    // mark the device native and create the Razer client directly.
+    if (isWebView2Host()) {
+      markNativeTransport(nativeOnly);
+      return new RazerHidClient(nativeOnly);
+    }
     // A nativeOnly model (e.g. the Viper Ultimate wireless receiver) moves its
-    // control channel to a collection the browser refuses to expose, so the
-    // picker filters should not offer it at all. If one was granted anyway,
-    // say why it cannot work.
+    // control channel to a collection the browser refuses to expose. If one was
+    // granted in a plain browser anyway, say why it cannot work.
     const product = RAZER_PRODUCTS.get(nativeOnly.productId);
     throw new Error(
       `The ${product?.model ?? "mouse"} cannot be read in the browser: its control channel `
