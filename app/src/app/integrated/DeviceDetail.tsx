@@ -21,6 +21,7 @@ import * as control from "../../device/controller";
 import { RATE_STEPS_HZ, PULSAR_SLEEP_OPTIONS } from "../../device/controller";
 import { sleepLabel } from "../../device/options";
 import {
+  activeSoftwareProfile,
   activeSoftwareProfileId,
   deleteSoftwareProfile,
   listSoftwareProfiles,
@@ -30,6 +31,7 @@ import {
   type SoftwareProfile,
   type SoftwareProfileSettings,
 } from "../../software-profiles";
+import { cardAvailability, hasNativeProfileManagement } from "../cards/availability";
 import type { ControlSnapshot, LiftOffLevel, WorkspaceTab, PulsarToggleSetting } from "../../device/types";
 import { deviceImage } from "../../ui/device-images";
 import { computeResults, formatHz, rollingLiveHz, stabilityClass, type TestResults } from "../../ui/polling-stats";
@@ -1185,7 +1187,19 @@ function OverviewBody({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const device = control.getActiveDevice();
   const charging = isCharging(s.batteryState);
   const fw = s.firmware;
-  const activeProfile = s.activeProfile !== null ? `Profile ${s.activeProfile}` : null;
+  // A device can report activeProfile without any switchable profile feature
+  // behind it (base Pulsar just reads which onboard slot is active) — showing
+  // "Profile 1" there is misleading. Only show the native profile when it's
+  // really managed; otherwise fall back to the software profile the user picked.
+  const hasNativeProfiles = hasNativeProfileManagement(cardAvailability(snapshot));
+  const activeSoftware = !hasNativeProfiles && device
+    ? activeSoftwareProfile(control.deviceStorageKey(device))
+    : null;
+  const activeProfile = hasNativeProfiles && s.activeProfile !== null
+    ? (s.onboardProfileFormat?.name
+      ? `Profile ${s.activeProfile} (${s.onboardProfileFormat.name})`
+      : `Profile ${s.activeProfile}`)
+    : activeSoftware?.name ?? null;
   return (
     <div className="htv2-ov">
       <div className="htv2-ov-hero">
