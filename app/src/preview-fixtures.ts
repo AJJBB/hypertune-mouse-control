@@ -1,4 +1,5 @@
 import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
+import type { LogitechReprogrammableControl } from "@openmouse/protocol/logitech";
 import { PREVIEW_KEYS, type FixturePreviewMode } from "./preview-modes";
 
 export { PREVIEW_KEYS };
@@ -18,7 +19,54 @@ export interface PreviewFixture {
   /** Shown in the picker and the live-status line. */
   label: string;
   status: MouseStatus;
+  /**
+   * Logitech reprogrammable controls. These are not part of MouseStatus (the
+   * driver reads them separately), so a Logitech fixture carries them here to
+   * exercise the v2 Buttons screen in preview.
+   */
+  buttons?: LogitechReprogrammableControl[];
 }
+
+/** Builds one MX-style reprogrammable control; most firmware fields are
+    irrelevant to the Buttons screen, so they take representative defaults. */
+function mxControl(
+  controlId: number,
+  name: string,
+  taskName: string,
+  opts: { reprogrammable?: boolean; remappableTo?: number[]; mappedTo?: number } = {},
+): LogitechReprogrammableControl {
+  const reprogrammable = opts.reprogrammable ?? true;
+  return {
+    controlId,
+    taskId: controlId,
+    flags: reprogrammable ? 0x10 : 0x01,
+    group: 1,
+    groupMask: reprogrammable ? 0x0f : 0,
+    mappingFlags: 0,
+    mappedTo: opts.mappedTo ?? controlId,
+    diverted: false,
+    name,
+    taskName,
+    reprogrammable,
+    virtual: false,
+    remappableTo: opts.remappableTo ?? [],
+  };
+}
+
+/**
+ * A representative MX Master 3S control set, modelled on the Logitech driver's
+ * readButtons() return: the primary clicks are firmware-locked, the thumb and
+ * gesture controls remap within their group. Forward is shown already remapped
+ * to Middle click so the preview exercises a non-default mapping.
+ */
+const MX_MASTER_3S_BUTTONS: LogitechReprogrammableControl[] = [
+  mxControl(0x0050, "Left click", "Left click", { reprogrammable: false }),
+  mxControl(0x0051, "Right click", "Right click", { reprogrammable: false }),
+  mxControl(0x0052, "Middle click", "Middle click", { remappableTo: [0x0052, 0x0053, 0x0056, 0x00c3] }),
+  mxControl(0x0053, "Back", "Back", { remappableTo: [0x0053, 0x0052, 0x0056, 0x00c3] }),
+  mxControl(0x0056, "Forward", "Forward", { mappedTo: 0x0052, remappableTo: [0x0056, 0x0052, 0x0053, 0x00c3] }),
+  mxControl(0x00c3, "Gesture button", "Gesture button", { remappableTo: [0x00c3, 0x0052, 0x0053, 0x0056] }),
+];
 
 const PULSAR: MouseStatus = {
   brand: "Pulsar",
@@ -770,7 +818,7 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   finalmouse: { label: "Finalmouse UltralightX", status: FINALMOUSE },
   ninjutso: { label: "Ninjutso Sora V3", status: NINJUTSO },
   "nape-pro": { label: "Keychron Nape Pro", status: KEYCHRON },
-  "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S },
+  "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S, buttons: MX_MASTER_3S_BUTTONS },
   g703: { label: "Logitech G703", status: LOGITECH_G703 },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
 };

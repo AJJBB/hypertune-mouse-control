@@ -4449,6 +4449,9 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   // Populate brand capabilities so preview cards that gate on capabilities still render.
   capabilities = readCapabilities();
   applyStatus(fixture.status);
+  // Logitech controls aren't part of MouseStatus, so a Logitech fixture carries
+  // them separately; seed the live map so the Buttons screen renders in preview.
+  buttons = fixture.buttons ?? null;
   if (name === "nape-pro") {
     const layer = fixture.status.napeLayer ?? 1;
     editedNapeLayer = layer;

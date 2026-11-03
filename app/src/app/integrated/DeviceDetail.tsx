@@ -392,7 +392,8 @@ function LightingBody({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
 // buttonOptions, applied with control.applyDeviceButtonMapping).
 type BtnRow = { key: string; name: string; action: string; fixed: boolean; options: readonly string[]; apply: (v: string) => void };
 
-function buttonRows(s: NonNullable<ControlSnapshot["status"]>): BtnRow[] {
+function buttonRows(snapshot: ControlSnapshot): BtnRow[] {
+  const s = snapshot.status!;
   // Modern brand-agnostic model (what the Figma screen is drawn against).
   if (s.buttonMappings && s.buttonOptions?.length) {
     const fixed = new Set(s.fixedButtons ?? []);
@@ -429,6 +430,36 @@ function buttonRows(s: NonNullable<ControlSnapshot["status"]>): BtnRow[] {
       options: RAZER_BUTTON_MAPPINGS,
       apply: (v: string) => control.applyRazerButtonMapping(con as RazerButtonControl, v as RazerButtonMapping),
     }));
+  }
+  // Logitech / HID++ — a reprogrammable-controls list keyed by numeric control
+  // id (snapshot.buttons, applied with control.applyButtonMapping). The
+  // brand-agnostic model above is never populated for these devices, so project
+  // each physical control into a BtnRow and translate the chosen target's name
+  // back to its control id on apply. This is what the old MxMaster card drove —
+  // without it the v2 screen wrongly reports "no remappable buttons".
+  if (snapshot.buttons && snapshot.buttons.length) {
+    const all = snapshot.buttons;
+    const staged = snapshot.stagedButtonMappings;
+    const nameOf = (id: number): string =>
+      all.find((candidate) => candidate.controlId === id)?.name
+      ?? `Control 0x${id.toString(16).padStart(4, "0").toUpperCase()}`;
+    return all.filter((b) => !b.virtual).map((b) => {
+      const canRemap = b.reprogrammable && b.remappableTo.length > 0;
+      const targetByName = new Map<string, number>();
+      for (const target of b.remappableTo) targetByName.set(nameOf(target), target);
+      const current = staged[b.controlId] ?? b.mappedTo;
+      return {
+        key: `logi-${b.controlId}`,
+        name: b.name,
+        action: canRemap ? nameOf(current) : b.taskName,
+        fixed: !canRemap,
+        options: [...targetByName.keys()],
+        apply: (v: string) => {
+          const target = targetByName.get(v);
+          if (target !== undefined) control.applyButtonMapping(b.controlId, target);
+        },
+      };
+    });
   }
   return [];
 }
@@ -488,7 +519,7 @@ function CalloutCard({ row, side, active, onToggle, onPick, style }: {
 
 function ButtonsBody({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const s = snapshot.status!;
-  const rows = buttonRows(s);
+  const rows = buttonRows(snapshot);
   const [active, setActive] = useState<string | null>(null);
   if (rows.length === 0) {
     return <div className="htv2-section-ph">This mouse doesn’t report remappable buttons.</div>;
