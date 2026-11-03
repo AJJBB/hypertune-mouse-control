@@ -17,6 +17,7 @@
     "build": "tsc --noEmit && vite build",
     "test": "node --test \"src/**/*.test.ts\"",
     "size": "node build/check-bundle-size.ts",
+    "optimize-art": "node scripts/optimize-device-art.mjs",
     "check": "npm run build && npm test",
     "preview": "vite preview"
   },
@@ -26,6 +27,7 @@
     "preact": "^10.29.8"
   },
   "devDependencies": {
+    "sharp": "^0.35.5",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   }
