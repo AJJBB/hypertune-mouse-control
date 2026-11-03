@@ -45,6 +45,9 @@ export interface DeviceCapabilities {
 
 export interface SidebarDevice {
   index: number;
+  /** Stable identity (vendorId:productId:productName) so a click resolves the
+      exact device, not a position into a differently-filtered list. */
+  key: string;
   name: string;
   detail: string;
   selected: boolean;

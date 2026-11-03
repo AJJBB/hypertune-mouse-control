@@ -706,7 +706,7 @@ nav { display: grid; gap: .3rem; margin-top: 1.4rem; }
 .locale-menu button:hover { background: var(--surface-hover); color: var(--text-hover); }
 .locale-menu button.is-selected { color: var(--text-strong); font-weight: 650; }
 
-.support-dialog { width: min(38rem, calc(100vw - 2rem)); max-height: min(46rem, calc(100vh - 2rem)); padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-dialog); color: var(--text-strong); box-shadow: 0 24px 80px rgb(0 0 0 / 45%); }
+.support-dialog { width: min(38rem, calc(100vw - 2rem)); max-height: min(46rem, calc(100vh - 2rem)); overflow: auto; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-dialog); color: var(--text-strong); box-shadow: 0 24px 80px rgb(0 0 0 / 45%); }
 .support-dialog::backdrop { background: rgb(0 0 0 / 68%); backdrop-filter: blur(3px); }
 .support-dialog-inner { display: grid; gap: 1rem; padding: 1.25rem; }
 .support-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
@@ -2835,7 +2835,7 @@ body { height: 100vh; overflow: hidden; }
 .mouse-test-start-btn {
   border: 0;
   background: var(--ui-accent);
-  color: #fff;
+  color: var(--ui-accent-ink);
   font-size: 0.9rem;
   font-weight: 700;
   padding: 0.55rem 1.6rem;
@@ -3665,8 +3665,14 @@ body { height: 100vh; overflow: hidden; }
   --v2-amber: #efbf04;           /* charging / warning */
   --v2-text: #ffffff;
   --v2-text-dim: #ffffff80;      /* 50% — labels */
-  --v2-text-faint: #ffffff47;    /* ~28% — eyebrows */
+  --v2-text-faint: #ffffff8c;    /* ~55% — eyebrows (raised from 28% for WCAG AA) */
   --v2-font: "Inter", system-ui, -apple-system, sans-serif;
+  /* The global PendingBar/Apply bar reads --ui-accent*, which are otherwise only
+     defined on .control-shell — integrated mode mounts under .htv2-root, so
+     without these the Apply button paints with no background (near-invisible). */
+  --ui-accent: var(--v2-accent);
+  --ui-accent-ink: #06231a;
+  --ui-accent-soft: color-mix(in srgb, var(--v2-accent) 16%, transparent);
 }
 
 /* ── Device grid (content pane) ─────────────────────────────────────────────
@@ -4432,6 +4438,11 @@ body { height: 100vh; overflow: hidden; }
   box-shadow: inset 0 0 0 1px rgba(19, 242, 135, .32);
 }
 .htv2-btn-callout.is-active .htv2-btn-action { color: var(--v2-accent); }
+/* Lift the open callout above its siblings: each callout is its own z:2 stacking
+   context, so without this the menu (z21) and scrim (z20) nested inside the
+   active callout paint UNDER the later-in-DOM callout cards, hiding the lower
+   options and stealing their clicks. */
+.htv2-btn-callout.is-active { z-index: 22; }
 
 .htv2-btn-scrim { position: fixed; inset: 0; z-index: 20; }
 .htv2-btn-menu {

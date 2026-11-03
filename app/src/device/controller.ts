@@ -1097,12 +1097,14 @@ export function applyButtonMapping(controlId: number, targetControlId: number): 
 async function writeStagedButtonMappings(): Promise<void> {
   const client = logitechClient();
   if (!client) return;
-  try {
-    for (const [controlId, targetControlId] of stagedButtonMappings) {
-      buttons = await client.setButtonMapping(controlId, targetControlId);
-    }
-  } finally {
-    stagedButtonMappings.clear();
+  // Delete each remap only AFTER it is written. A blanket clear in a finally
+  // would drop the unwritten remaps on a mid-loop failure (the transient HID++
+  // contention this app already retries for), and because the pending changes
+  // aren't dropped until apply() resolves, the next Apply would iterate an empty
+  // map, write nothing, and report a false success — silently losing the remap.
+  for (const [controlId, targetControlId] of [...stagedButtonMappings]) {
+    buttons = await client.setButtonMapping(controlId, targetControlId);
+    stagedButtonMappings.delete(controlId);
   }
 }
 
@@ -1746,7 +1748,7 @@ function sidebarEntries(devices: HIDDevice[]): SidebarDevice[] {
     const detail = status
       ? `${status.brand} · ${connectionText(interfacePreferences.locale, status.connectionType, "ctl.connected")}`
       : `${deviceBrand(client)} · Available`;
-    return { index, name, detail, selected: device === activeDevice, vendorId: device.vendorId, productId: device.productId, kind: sidebarEntryForm(client) };
+    return { index, key: deviceStorageKey(device), name, detail, selected: device === activeDevice, vendorId: device.vendorId, productId: device.productId, kind: sidebarEntryForm(client) };
   });
 }
 
@@ -1849,10 +1851,23 @@ async function waitForControllerIdle(): Promise<void> {
   }
 }
 
+/**
+ * Resolve a sidebar row to the exact device it names, by its stable key, in the
+ * current logical-device list. A positional index into the logical list is
+ * wrong: the sidebar is built from the isConfirmedMouse-filtered subset, so a
+ * non-mouse peripheral on a shared vendor transport shifts the indexes and would
+ * open the wrong device.
+ */
+async function resolveSidebarDevice(index: number): Promise<HIDDevice | null> {
+  const entry = sidebarDevices[index];
+  if (!entry) return null;
+  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
+  return devices.find((device) => deviceStorageKey(device) === entry.key) ?? null;
+}
+
 export async function selectAuthorizedDevice(index: number): Promise<void> {
   await waitForControllerIdle();
-  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
-  const device = devices[index];
+  const device = await resolveSidebarDevice(index);
   if (!device) return;
   // Only a nativeOnly Razer (e.g. the Viper V3 Pro receiver) can't be driven
   // without a native bridge; WebHID-reachable Razer connect like any other mouse.
@@ -1880,8 +1895,7 @@ export async function selectAuthorizedDevice(index: number): Promise<void> {
 /** Open the given device's dashboard from the picker, connecting it first when needed. */
 export async function openDeviceOverview(index: number): Promise<void> {
   await waitForControllerIdle();
-  const devices = listLogicalDevices(await navigator.hid?.getDevices() ?? []);
-  const device = devices[index];
+  const device = await resolveSidebarDevice(index);
   if (!device) {
     await connect();
     return;
@@ -1957,7 +1971,12 @@ async function readStatusWithRetry(client: SupportedClient): Promise<MouseStatus
 }
 
 async function activateClientNow(client: SupportedClient): Promise<void> {
-  while (refreshInProgress) {
+  // Also wait out an in-flight write, not just a refresh: the hot-plug
+  // connect/disconnect handlers call activateClient directly (the user-initiated
+  // paths gate on waitForControllerIdle, these don't), so without this a mouse
+  // plugged in mid-flash would close the active device and swap `active` while a
+  // staged write was still resolving its client — corrupting or misrouting it.
+  while (settingInProgress || refreshInProgress) {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
   }
   if (active && active !== client) await active.close().catch(() => undefined);
@@ -3176,30 +3195,33 @@ function applyNapeAssignmentValue(
 }
 
 async function writeStagedNapeAssignments(): Promise<void> {
-  const edits = [...stagedNapeAssignments.values()];
-  try {
-    if (isAnyPreview) {
-      for (const edit of edits) patchNapeKeymap(edit.layer, edit.control, edit.keycode);
-      return;
-    }
-    const client = keychronNapeClient();
-    if (!client) return;
-    for (const edit of edits) {
-      if (edit.control.kind === "orientation") {
-        await client.setLayerOrientation(edit.layer, edit.keycode);
-      } else if (edit.control.kind === "key") {
-        await client.setKeycode(edit.layer, edit.control.col, edit.keycode);
-      } else {
-        await client.setEncoder(edit.layer, edit.control.clockwise, edit.keycode);
-      }
+  // Delete each assignment only after it is applied — see writeStagedButtonMappings
+  // for why a blanket clear silently loses edits on a mid-loop failure. Stale
+  // survivors are reconciled against the pending bar by dropStaleNapeAssignments.
+  const entries = [...stagedNapeAssignments];
+  if (isAnyPreview) {
+    for (const [key, edit] of entries) {
       patchNapeKeymap(edit.layer, edit.control, edit.keycode);
+      stagedNapeAssignments.delete(key);
     }
-    const layer = editedNapeLayer ?? napeKeymap?.layer;
-    if (layer != null) {
-      rememberNapeKeymap(await client.readLayerKeymap(layer));
+    return;
+  }
+  const client = keychronNapeClient();
+  if (!client) return;
+  for (const [key, edit] of entries) {
+    if (edit.control.kind === "orientation") {
+      await client.setLayerOrientation(edit.layer, edit.keycode);
+    } else if (edit.control.kind === "key") {
+      await client.setKeycode(edit.layer, edit.control.col, edit.keycode);
+    } else {
+      await client.setEncoder(edit.layer, edit.control.clockwise, edit.keycode);
     }
-  } finally {
-    stagedNapeAssignments.clear();
+    patchNapeKeymap(edit.layer, edit.control, edit.keycode);
+    stagedNapeAssignments.delete(key);
+  }
+  const layer = editedNapeLayer ?? napeKeymap?.layer;
+  if (layer != null) {
+    rememberNapeKeymap(await client.readLayerKeymap(layer));
   }
 }
 
