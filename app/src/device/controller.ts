@@ -2406,6 +2406,52 @@ export function applyCustomDpi(dpi: number): boolean {
   return true;
 }
 
+/**
+ * Persist a quick-DPI change into the active onboard profile so it survives a
+ * power cycle and Logi G HUB / Options+ taking and releasing host control.
+ *
+ * Logitech's setDpi (like OpenMouse's) only writes the host-mode *volatile*
+ * register: the moment software lets go of host control the mouse falls back to
+ * its onboard profile's DPI, which is the "I set my DPI and it reverted" report.
+ * Writing the value into the active profile's active stage makes it stick.
+ *
+ * Best-effort and tightly guarded: runs only on a Logitech mouse whose profile
+ * format is hardware-confirmed writable (onboardProfileFormat.writable) and
+ * whose current profile read back with a valid checksum. Every other slot and
+ * the default index are left exactly as the user set them. Any failure is
+ * swallowed — the live host-mode set the caller already did still stands.
+ *
+ * NEEDS HARDWARE CONFIRMATION: this writes a real Logitech profile flash sector.
+ * The driver re-reads and refuses on a bad CRC and restores on a failed write,
+ * but confirm a write-then-reconnect keeps the DPI before trusting it widely.
+ */
+async function persistDpiToOnboardProfile(dpi: number): Promise<void> {
+  const client = logitechClient();
+  if (!client || lastProfileFormat?.writable !== true) return;
+  const current = onboardProfiles?.find((profile) => profile.isCurrent);
+  if (!current || !current.crcValid || current.dpiStages.length === 0) return;
+
+  const activeIndex = Math.min(
+    Math.max(latestDeviceStatus?.activeDpiStage ?? current.defaultDpiIndex ?? 0, 0),
+    current.dpiStages.length - 1,
+  );
+  const stages = current.dpiStages.map((stage, index) =>
+    index === activeIndex ? { x: dpi, y: dpi, lod: stage.lod } : stage,
+  );
+  const plan: DpiStagePlan = {
+    stages,
+    defaultIndex: Math.min(Math.max(current.defaultDpiIndex ?? activeIndex, 0), stages.length - 1),
+  };
+  try {
+    await client.setProfileDpiStages(plan);
+    // Keep the in-memory profile in step so a re-render shows the saved value.
+    current.dpiStages = stages;
+  } catch {
+    // Not writable after all (bad CRC, unverified layout, a model reporting a
+    // writable format it can't take): the host-mode DPI the caller set stays.
+  }
+}
+
 export function applyDpiValue(dpi: number): boolean {
   if (!hasActiveClient() || !dpiOptions.includes(dpi)) return false;
   stageChange({
@@ -2425,6 +2471,8 @@ export function applyDpiValue(dpi: number): boolean {
     },
     apply: async () => {
       await requireClientMethod("setDpi", "DPI").setDpi(dpi);
+      // Make it persistent on Logitech, where setDpi alone reverts (see above).
+      await persistDpiToOnboardProfile(dpi);
     },
   });
   return true;
