@@ -21,41 +21,10 @@ import * as control from "../device/controller";
 import type { ControlSnapshot, WorkspaceTab } from "../device/types";
 import { t, tp, connectionText, type I18nKey } from "../i18n";
 import { MouseTestPage } from "./MouseTestPage";
-import { LogitechDetails } from "./Diagnostics";
-import { KeychronNapeLayers } from "./KeychronNapeLayers";
-import { Profiles } from "./Profiles";
-import { SoftwareProfiles } from "./SoftwareProfiles";
-import { Superstrike } from "./Superstrike";
-import { DpiCard } from "./cards/DpiCard";
-import { LightforceCard, PollingCard, SensorCard } from "./cards/PerformanceCards";
-import { LightingCard } from "./cards/LightingCard";
-import { MxMasterButtonsCard, MxMasterCards } from "./cards/MxMasterCards";
-import { AtkButtonCard, AtkProfileCard, AtkReceiverCard } from "./cards/AtkCards";
-import {
-  DebounceCard,
-  EggButtonCard,
-  EggCpiCard,
-  EggFilterCard,
-  EggPollingCard,
-  EggSpdtCard,
-  FinalmouseCard,
-  IncottCard,
-  LowPowerCard,
-  NinjutsoClickCard,
-  NinjutsoSensorCard,
-  ProcessingCard,
-  RazerButtonCard,
-  ButtonMappingCard,
-  PowerModeCard,
-  OnboardProfileCard,
-  PulsarProCard,
-  SignalCard,
-  SleepCard,
-  DpiLightingCard,
-} from "./cards/AdvancedCards";
+import { SleepCard, DpiLightingCard } from "./cards/AdvancedCards";
 import { cardAvailability, hasNativeProfileManagement } from "./cards/availability";
 import { activeSoftwareProfile } from "../software-profiles";
-import { TeevolutionProfileCard } from "./cards/teevolution/ProfileCard";
+import { deviceCards } from "./device-cards";
 import { deviceImage, isUnknownDevice, showcaseDeviceImageUrls } from "../ui/device-images";
 import { BatteryIcon } from "./ui";
 
@@ -358,75 +327,12 @@ interface DashboardSections {
 }
 
 /** Every configurable card for the connected device, grouped into the same
-    five categories the tab bar switches between. Computed once and shared
-    by the tab bar (to know which tabs have anything in them) and the
-    workspace (to render the active one). */
+    five categories the tab bar switches between. Built from the shared
+    `deviceCards` source (so the standalone and integrated shells expose the
+    same controls), then folded into this shell's own layout: Buttons merge
+    under Advanced, and Mouse Test is a separate view. */
 function computeDashboardSections(snapshot: ControlSnapshot): DashboardSections {
-  const status = snapshot.status!;
-  const has = cardAvailability(snapshot);
-  const powerOverview = status.ui?.powerOverview === true;
-
-  const performance = [
-    has.dpi ? <DpiCard key="dpi" snapshot={snapshot} /> : null,
-    has.polling ? <PollingCard key="polling" snapshot={snapshot} /> : null,
-    has.sensor ? <SensorCard key="sensor" snapshot={snapshot} /> : null,
-    has.lightforce ? <LightforceCard key="lightforce" snapshot={snapshot} /> : null,
-    has.ninjutsoSensor ? <NinjutsoSensorCard key="ninjutso-sensor" snapshot={snapshot} /> : null,
-    has.ninjutsoClick ? <NinjutsoClickCard key="ninjutso-click" snapshot={snapshot} /> : null,
-    has.processing ? <ProcessingCard key="processing" snapshot={snapshot} /> : null,
-    has.eggFilter ? <EggFilterCard key="eggfilter" snapshot={snapshot} /> : null,
-    has.eggPolling ? <EggPollingCard key="eggpolling" snapshot={snapshot} /> : null,
-    has.eggCpi ? <EggCpiCard key="eggcpi" snapshot={snapshot} /> : null,
-    has.powerMode ? <PowerModeCard key="power-mode" snapshot={snapshot} /> : null,
-  ].filter((node) => node !== null);
-
-  const lightingZones = status.lightingZones?.length ? status.lightingZones : status.lighting ? [status.lighting] : [];
-  const lighting = [
-    has.lighting ? <LightingCard key="lighting-main" snapshot={snapshot} variant="tab" zones={lightingZones} /> : null,
-    !powerOverview && has.teevolutionDpiLighting ? <DpiLightingCard key="dpi-indicator" snapshot={snapshot} /> : null,
-    has.lightingAdvanced ? <LightingCard key="lighting-advanced" snapshot={snapshot} variant="advanced" /> : null,
-  ].filter((node) => node !== null);
-
-  const buttons = [
-    has.debounce ? <DebounceCard key="debounce" snapshot={snapshot} /> : null,
-    has.eggSpdt ? <EggSpdtCard key="eggspdt" snapshot={snapshot} /> : null,
-    has.eggButtons ? <EggButtonCard key="eggbuttons" snapshot={snapshot} /> : null,
-    has.razerButtons ? <RazerButtonCard key="razerbuttons" snapshot={snapshot} /> : null,
-    has.mxMasterButtons ? <MxMasterButtonsCard key="mxmaster-buttons" snapshot={snapshot} /> : null,
-    has.atkButtons ? <AtkButtonCard key="atk-buttons" snapshot={snapshot} /> : null,
-    has.buttonMapping && !snapshot.traits.teevolution
-      ? <ButtonMappingCard key="button-mapping" snapshot={snapshot} /> : null,
-    has.superstrike ? <Superstrike key="superstrike" snapshot={snapshot} /> : null,
-  ].filter((node) => node !== null);
-
-  const profiles: ReactNode[] = [
-    has.profiles ? <Profiles key="profiles" snapshot={snapshot} /> : null,
-    snapshot.traits.teevolution && has.onboardProfiles
-      ? <TeevolutionProfileCard key="teevolution-profiles" snapshot={snapshot} /> : null,
-    has.keychronNapeLayers ? <KeychronNapeLayers key="nape-layers" snapshot={snapshot} /> : null,
-    has.atkProfile ? <AtkProfileCard key="atk-profile" snapshot={snapshot} /> : null,
-    has.onboardProfiles && !snapshot.traits.teevolution
-      ? <OnboardProfileCard key="onboard-profile" snapshot={snapshot} /> : null,
-    has.pulsarPro ? <PulsarProCard key="pulsarpro" snapshot={snapshot} /> : null,
-    // Fallback for devices with no real onboard-profile feature (base
-    // Pulsar included): named presets the app remembers and re-applies,
-    // rather than leaving the Profiles tab empty for these mice.
-    !hasNativeProfileManagement(has) ? <SoftwareProfiles key="software-profiles" snapshot={snapshot} /> : null,
-  ].filter((node) => node !== null);
-
-  const showMxMaster = status.hapticIntensity != null || status.wheelMode != null
-    || status.friendlyName != null || status.hostCount != null;
-
-  const advancedCards = [
-    has.signal ? <SignalCard key="signal" snapshot={snapshot} /> : null,
-    !powerOverview && has.sleep ? <SleepCard key="sleep" snapshot={snapshot} /> : null,
-    has.lowPower ? <LowPowerCard key="lowpower" snapshot={snapshot} /> : null,
-    has.finalmouse ? <FinalmouseCard key="finalmouse" snapshot={snapshot} /> : null,
-    has.incott ? <IncottCard key="incott" snapshot={snapshot} /> : null,
-    has.atkReceiver ? <AtkReceiverCard key="atk-receiver" snapshot={snapshot} /> : null,
-    has.logitechDetails ? <LogitechDetails key="logitech-details" snapshot={snapshot} /> : null,
-    showMxMaster ? <MxMasterCards key="mxmaster-details" snapshot={snapshot} /> : null,
-  ].filter((node) => node !== null);
+  const { performance, lighting, buttons, profiles, advanced: advancedCards } = deviceCards(snapshot);
 
   // Button controls (debounce, remaps, etc.) live under Advanced rather than
   // their own tab — most mice expose only one or two, so a dedicated tab read

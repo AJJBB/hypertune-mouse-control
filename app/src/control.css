@@ -3939,6 +3939,29 @@ body { height: 100vh; overflow: hidden; }
 .htv2-dbody { flex: 1 1 auto; display: flex; gap: 25px; min-height: 0; }
 .htv2-dcol-left { flex: 0 0 500px; max-width: 500px; }
 .htv2-dcol-right { flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+/* ── Shared control cards embedded in the integrated shell ──────────────────
+   Every section's CONTROLS are the same .setting-card components the standalone
+   web shell renders (built by deviceCards), so each mouse exposes its full
+   surface. These rules lay them out as a stack and give them the v2 skin so
+   they read as part of the integrated design rather than the standalone one. */
+.htv2-cards { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.htv2-dcol-right > .htv2-cards { flex: 1 1 auto; }
+/* Buttons / Profiles have no mouse hero — the stack fills the width and scrolls
+   inside the view. */
+.htv2-dview > .htv2-cards-wide { flex: 1 1 auto; padding-right: 2px; }
+
+.htv2-detail2 .setting-card {
+  background: var(--v2-surface);
+  border-color: var(--v2-line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  font-family: var(--v2-font);
+}
+.htv2-detail2 .setting-card h2 { font-family: var(--v2-font); }
+.htv2-detail2 .setting-heading { margin-bottom: 14px; }
+/* The full-width Buttons/Profiles stack reads better capped, not edge-to-edge. */
+.htv2-cards-wide .setting-card { max-width: 760px; }
 .htv2-dmouse-ph {
   display: grid; place-items: center; height: 100%; min-height: 300px;
   border: 1px dashed var(--v2-line); border-radius: 9px; color: var(--v2-text-dim); font-size: 14px; text-align: center;

@@ -788,6 +788,22 @@ const LOGITECH_MX_MASTER_3S: MouseStatus = {
   supportedLiftOffDistances: [],
   connectionType: "Wireless",
   connectionDetail: "Logi Bolt",
+  // MagSpeed wheel + Easy-Switch + friendly name: the real MX Master 3S reports
+  // these, and OpenMouse shows them — the fixture carries them so the integrated
+  // Advanced screen exercises the full Logitech surface in preview.
+  wheelMode: "Ratchet",
+  wheelRatchetEngaged: true,
+  smartShiftThreshold: 50,
+  hiResScroll: true,
+  invertScroll: false,
+  supportsInvertScroll: true,
+  thumbWheelInverted: false,
+  supportsThumbWheelInvert: true,
+  friendlyName: "MX Master 3S",
+  friendlyNameMaxLength: 16,
+  hostCount: 3,
+  currentHost: 0,
+  hostSlotsPaired: [true, true, false],
   firmware: ["RQK 70.00"],
 };
 
