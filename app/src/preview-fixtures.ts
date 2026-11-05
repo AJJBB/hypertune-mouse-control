@@ -94,6 +94,10 @@ const PULSAR: MouseStatus = {
 const PULSAR_PRO: MouseStatus = {
   ...PULSAR,
   name: "Pulsar X2 V2 Pro",
+  // The real Pulsar Pro driver tags the connection so isPulsarProProtocol() is
+  // true, which surfaces the Pro-only card (wheel accel, angle tuning, onboard
+  // profile) on the Profiles tab.
+  connectionDetail: "2.4 GHz receiver · Pulsar Pro protocol",
   performanceMode: true,
   angleTuning: 0,
   wheelAcceleration: false,
@@ -338,6 +342,12 @@ const ATK: MouseStatus = {
   activeProfile: null,
   liftOffDistance: "Medium",
   connectionType: "Wireless",
+  // ATK is a direct-mode family (motion sync, debounce, sleep over its transport);
+  // populate them so the preview exercises the Processing / Debounce / Sleep cards
+  // the real hardware reports.
+  motionSync: true,
+  debounceMs: 2,
+  sleepTimeout: 60,
   firmware: ["1.0.0"],
 };
 
@@ -596,7 +606,7 @@ const FINALMOUSE: MouseStatus = {
   batteryVoltageMv: 3890,
   batteryState: "Discharging",
   dpi: 1600,
-  pollingRateHz: 8000,
+  pollingRateHz: 1000,
   supportedPollingRates: [125, 500, 1000],
   activeProfile: null,
   connectionType: "Wireless",

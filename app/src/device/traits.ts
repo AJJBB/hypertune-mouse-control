@@ -65,6 +65,11 @@ const BY_FAMILY: Readonly<Record<string, Partial<DriverTraits>>> = {
   "steelseries-aerox3-wireless": { advancedSection: true, sleep: true },
   "attack-shark": DIRECT_MODE,
   crdrako: DIRECT_MODE,
+  // Orbital reports brand "Orbital" with no ui.family and no showAdvancedSection,
+  // but its driver reads/writes motion-sync, debounce and sleep. Without this
+  // entry familyOf() resolves to "orbital", traits=NONE, host stays false, and
+  // its Processing / Debounce / Sleep cards never render on EITHER shell.
+  orbital: { advancedSection: true, sleep: true, debounce: true },
   atk: DIRECT_MODE,
   "atk-bitmouse": DIRECT_MODE,
   ninjutso: { ...DIRECT_MODE, ninjutso: true },

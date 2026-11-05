@@ -59,8 +59,11 @@ export function SoftwareProfiles({ snapshot }: { snapshot: ControlSnapshot }): R
   const [, setVersion] = useState(0);
   const refresh = (): void => setVersion((value) => value + 1);
 
-  if (!status || !device) return null;
-  const deviceKey = control.deviceStorageKey(device);
+  if (!status) return null;
+  // A real connection always has a device object; the dev fixture preview does
+  // not, so fall back to a status-derived key there (same pattern the old
+  // integrated ProfilesBody used) rather than rendering a blank Profiles tab.
+  const deviceKey = device ? control.deviceStorageKey(device) : `preview:${status.name}`;
   const profiles = listSoftwareProfiles(deviceKey);
   const activeId = activeSoftwareProfileId(deviceKey);
   const isPulsar = status.brand === "Pulsar";
