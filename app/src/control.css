@@ -3810,7 +3810,20 @@ body { height: 100vh; overflow: hidden; }
   color: var(--v2-text);
   font-family: var(--v2-font);
 }
-.htv2-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+/* The native shell renders us at one fixed, landscape window (~1190x700). Cap
+   and centre the content so it holds those proportions and fills that window,
+   and so a larger viewport (e.g. a maximised browser while testing) shows a
+   centred panel instead of sprawling the hero into a void with the cards piled
+   in one corner. Below the cap the content shrinks to fill (flex-shrink). */
+.htv2-content {
+  flex: 0 1 800px;
+  width: 100%;
+  max-width: 1340px;
+  min-height: 0;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+}
 
 /* ── Add-mouse card (grid) — same 390x447 footprint as a device card ──────── */
 .htv2-card-add {
@@ -3950,7 +3963,7 @@ body { height: 100vh; overflow: hidden; }
 /* The hero sits beside the right column, which is narrower than the full view —
    flow the cards into it as an auto-fit grid so one card fills the width, two to
    four wrap into columns, and the section needs far less vertical scroll. */
-.htv2-dcol-right > .htv2-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; align-content: start; }
+.htv2-dcol-right > .htv2-cards { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; align-content: safe center; }
 /* Buttons / Profiles have no mouse hero — the stack fills the width and scrolls
    inside the view. */
 .htv2-dview > .htv2-cards-wide { flex: 1 1 auto; overflow-y: auto; padding-right: 2px; }
@@ -4068,14 +4081,18 @@ body { height: 100vh; overflow: hidden; }
 .htv2-dcol-left { display: flex; flex-direction: column; gap: 10px; }
 .htv2-mouse {
   position: relative; flex: 1 1 auto; min-height: 220px;
-  border-radius: 9px; background: #131516; overflow: hidden;
+  border-radius: 12px; overflow: hidden;
+  /* A visible surface (the bg is the same #131516, which made the mouse look
+     like it floated in a void) + hairline, so the hero reads as a panel. */
+  background: linear-gradient(160deg, #1b1e20, #141618);
+  border: 1px solid var(--v2-line);
   display: grid; place-items: center;
 }
 .htv2-mouse-glow {
   position: absolute; left: 50%; top: 58%; width: 72%; aspect-ratio: 1; transform: translate(-50%, -50%);
   background: radial-gradient(circle, rgba(19, 242, 135, .22), rgba(19, 242, 135, 0) 65%);
 }
-.htv2-mouse-img { position: relative; max-width: 72%; max-height: 86%; object-fit: contain; }
+.htv2-mouse-img { position: relative; max-width: 82%; max-height: 90%; object-fit: contain; }
 .htv2-dpi {
   position: relative; overflow: hidden;
   display: flex; align-items: stretch; gap: 10px; height: 132px;
