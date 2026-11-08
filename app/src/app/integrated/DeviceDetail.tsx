@@ -17,6 +17,7 @@ import { deviceImage } from "../../ui/device-images";
 import { computeResults, formatHz, rollingLiveHz, stabilityClass, type TestResults } from "../../ui/polling-stats";
 import { MouseTestMouse } from "../MouseTestMouse";
 import { deviceCards, type DeviceCardSets } from "../device-cards";
+import { reportEvent } from "../../telemetry";
 
 function isCharging(state: string | undefined): boolean {
   return state === "Charging" || state === "Charging slowly" || state === "Almost full";
@@ -211,6 +212,7 @@ function MouseTestBody(): ReactNode {
   }, []);
 
   const startTest = (): void => {
+    reportEvent("mouse_test_started", duration);
     intervalsRef.current = [];
     lastTimeRef.current = 0;
     setLiveHz(0);

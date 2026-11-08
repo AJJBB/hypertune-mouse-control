@@ -152,6 +152,7 @@ import {
   type KeychronNapeLayerKeymap,
 } from "@openmouse/protocol/keychron";
 import { SUPPORTED_HID_FILTERS, VENDOR_ID } from "@openmouse/protocol/drivers/vendors";
+import { reportEvent } from "../telemetry";
 import { WLMouseHidClient } from "@openmouse/protocol/drivers/wlmouse/hid";
 import { MicrosoftHidClient } from "@openmouse/protocol/drivers/microsoft/hid";
 import { DareuHidClient } from "@openmouse/protocol/drivers/dareu/hid";
@@ -1354,6 +1355,7 @@ export function closeInterfaceSettings(): void {
 
 export function openReportProblem(): void {
   reportProblemOpen = true;
+  reportEvent("report_problem_opened");
   emit();
 }
 
@@ -1374,6 +1376,7 @@ export function closeConnectError(): void {
 
 export function setWorkspaceTab(tab: WorkspaceTab): void {
   activeWorkspaceTab = tab;
+  reportEvent("section_opened", tab);
   emit();
 }
 
@@ -2350,6 +2353,7 @@ async function requestSupportedClient(): Promise<SupportedClient | null> {
 }
 
 export async function connect(): Promise<void> {
+  reportEvent("add_mouse_clicked");
   setConnectionButtons(true, "Connecting…");
   connectErrorOpen = false;
   deviceStatusText = st("ctl.requesting");
@@ -2367,8 +2371,10 @@ export async function connect(): Promise<void> {
     readStatus = st("ctl.reading", { name: statusNameForClient(client) });
     emit();
     await activateClient(client);
+    reportEvent("connect_result", { ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read the mouse.";
+    reportEvent("connect_result", { ok: false });
     const wrongDevice = error instanceof NotAMouseError;
     if (!wrongDevice) recordDiagnosticError(error, message);
     if (eggClient() ?? eggWeClient()) {
@@ -2532,6 +2538,7 @@ async function persistDpiToOnboardProfile(dpi: number): Promise<void> {
 
 export function applyDpiValue(dpi: number): boolean {
   if (!hasActiveClient() || !dpiOptions.includes(dpi)) return false;
+  reportEvent("dpi_changed", dpi);
   stageChange({
     key: "dpi",
     label: `DPI ${dpi.toLocaleString()}`,
@@ -3625,6 +3632,7 @@ export function applyPollingRate(rate: number): void {
   // else arrives from an imported profile key, so reject it before staging.
   const allowed = latestDeviceStatus?.supportedPollingRates ?? RATE_STEPS_HZ;
   if (!Number.isInteger(rate) || !allowed.includes(rate)) return;
+  reportEvent("polling_changed", rate);
   stageChange({
     key: "polling-rate",
     label: `${rate.toLocaleString()} Hz`,
