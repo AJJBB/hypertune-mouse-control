@@ -7,7 +7,7 @@
 // exact same surface for every mouse. The screens here add the v2 presentation
 // (mouse hero render, status pills, the live Mouse Test) around those cards;
 // control.css restyles the cards under `.htv2-detail2` to match the v2 look.
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { ChevronLeft, Crosshair, Activity, Battery, BatteryCharging, Share2, Flag } from "lucide-react";
 import * as control from "../../device/controller";
 import { activeSoftwareProfile } from "../../software-profiles";
@@ -55,10 +55,38 @@ function MousePanel({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   );
 }
 
-/** The device's configurable cards for a section, laid out as a vertical stack.
-    The cards come from the shared builder and carry their own controls. */
+/** The device's configurable cards for a section. The cards come from the shared
+    builder and carry their own controls.
+
+    The native shell is a single fixed, short window, so a section must never
+    scroll. This measures fit and uses the FEWEST columns that fit: a full-width
+    stack when the cards fit stacked (widest, best-looking), bumping to two or
+    three balanced columns only when they would otherwise overflow. CSS alone
+    can't do this (it can't see the available height), so we set `data-cols` +
+    `column-count` after layout; control.css styles the column modes. */
 function CardStack({ cards, wide = false }: { cards: ReactNode[]; wide?: boolean }): ReactNode {
-  return <div className={`htv2-cards${wide ? " htv2-cards-wide" : ""}`}>{cards}</div>;
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || wide) return;
+    const parent = el.parentElement;
+    if (!parent) return;
+    const fits = (): boolean => parent.scrollHeight <= parent.clientHeight + 1;
+    const apply = (): void => {
+      for (let cols = 1; cols <= 3; cols += 1) {
+        el.dataset.cols = String(cols);
+        el.style.columnCount = cols === 1 ? "" : String(cols);
+        // Reading scrollHeight forces the reflow that makes fits() accurate.
+        if (fits() || cols === 3) break;
+      }
+    };
+    apply();
+    // Re-measure if the column itself resizes or a staged control changes height.
+    const ro = new ResizeObserver(apply);
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, [cards.length, wide]);
+  return <div ref={ref} className={`htv2-cards${wide ? " htv2-cards-wide" : ""}`}>{cards}</div>;
 }
 
 /** Performance — mouse hero + the DPI / polling / sensor / processing cards. */
