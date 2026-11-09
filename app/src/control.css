@@ -3687,6 +3687,10 @@ body { height: 100vh; overflow: hidden; }
   gap: 14px;
   padding: 4px;
   align-content: flex-start;
+  /* Content-sized rows so the cards keep their natural height and the grid
+     SCROLLS when there are many mice — instead of the rows squashing each card
+     (which collapsed the mouse image to nothing and clipped the Open button). */
+  grid-auto-rows: max-content;
 }
 
 /* ── Device card — 390x447, r9, bg #131516 ─────────────────────────────────── */
@@ -3694,6 +3698,9 @@ body { height: 100vh; overflow: hidden; }
   display: flex;
   flex-direction: column;
   width: auto;
+  /* Never stretch to a taller sibling's row height (which would compress this
+     card's own image/button); keep the card its natural height. */
+  align-self: start;
   border-radius: 9px;
   background: var(--v2-bg);
   border: 1px solid var(--v2-line);
@@ -3702,9 +3709,11 @@ body { height: 100vh; overflow: hidden; }
   color: var(--v2-text);
 }
 
-/* Image header — 220px, gradient #17191a→#121415, badges overlaid 14px in */
+/* Image header — gradient #17191a→#121415, badges overlaid 14px in. flex 0 0 so
+   a height-pinched card can never shrink the mouse image away. */
 .htv2-card-media {
   position: relative;
+  flex: 0 0 172px;
   height: 172px;
   background: linear-gradient(160deg, #17191a, #121415);
 }
