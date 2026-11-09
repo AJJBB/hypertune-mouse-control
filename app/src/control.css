@@ -3703,8 +3703,10 @@ body { height: 100vh; overflow: hidden; }
   /* Never stretch to a taller sibling's row height (which would compress this
      card's own image/button); keep the card its natural height. */
   align-self: start;
-  border-radius: 9px;
-  background: var(--v2-bg);
+  border-radius: 10px;
+  /* A distinct surface (not the page bg) so the card reads as a clean box, and
+     consistent with the detail-screen cards. */
+  background: var(--v2-surface);
   border: 1px solid var(--v2-line);
   overflow: hidden;
   font-family: var(--v2-font);
@@ -3717,7 +3719,12 @@ body { height: 100vh; overflow: hidden; }
   position: relative;
   flex: 0 0 172px;
   height: 172px;
-  background: linear-gradient(160deg, #17191a, #121415);
+  /* A slightly recessed "screen" for the render, cohesive with the card surface
+     and a soft green floor glow so the mouse is presented, not floating. */
+  background:
+    radial-gradient(70% 60% at 50% 92%, rgba(19, 242, 135, .08), transparent 70%),
+    linear-gradient(160deg, #202427, #15181b);
+  border-bottom: 1px solid var(--v2-line);
 }
 .htv2-card-media > img {
   position: absolute;
@@ -3987,6 +3994,10 @@ body { height: 100vh; overflow: hidden; }
 .htv2-dcol-right > .htv2-cards {
   flex: 1 1 auto; min-height: 0;
   display: flex; flex-direction: column; gap: 12px;
+  /* Centre the stack so a tab with one or two short cards sits balanced beside
+     the mouse instead of piled at the top with a void below. (Ignored in the
+     column modes below, which are display:block and fill from the top.) */
+  justify-content: center;
 }
 /* When CardStack measures that a stack would overflow, it sets data-cols=2/3 and
    a column-count; switch to CSS multi-column there. Columns PACK cards by height
@@ -4452,8 +4463,16 @@ body { height: 100vh; overflow: hidden; }
 
 /* Overview tab */
 .htv2-ov { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 42fr) minmax(0, 58fr); gap: 20px; min-height: 0; }
-.htv2-ov-hero { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
-.htv2-ov-hero img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.htv2-ov-hero {
+  position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0;
+  /* Same anchored panel + soft glow as the detail-tab hero, so the mouse reads
+     as a deliberate showcase rather than floating on the background. */
+  border-radius: 12px; border: 1px solid var(--v2-line); overflow: hidden;
+  background:
+    radial-gradient(58% 48% at 50% 56%, rgba(19, 242, 135, .10), transparent 70%),
+    linear-gradient(160deg, #1b1e20, #141618);
+}
+.htv2-ov-hero img { position: relative; max-width: 86%; max-height: 90%; object-fit: contain; }
 .htv2-ov-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; overflow-y: auto; padding-right: 4px; }
 .htv2-ov-h { margin: 6px 0 2px; font: 500 16px var(--v2-font); color: var(--v2-text); }
 .htv2-ov-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
