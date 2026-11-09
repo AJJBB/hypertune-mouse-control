@@ -3679,10 +3679,12 @@ body { height: 100vh; overflow: hidden; }
    Figma "main frame": HORIZONTAL, 10px gap, 10px padding, cards 390x447. */
 .htv2-device-grid {
   display: grid;
-  /* Cards hold a sensible 300-400px width and the row is centred, so two cards
-     don't stretch to half the window each and three+ fill the row without
-     stranding to the left. */
-  grid-template-columns: repeat(auto-fit, minmax(300px, 400px));
+  /* Cards hold a sensible ~370px width and the row is centred, so one/two cards
+     don't stretch to half the window each, and three fit in one row at the app
+     width (2 mice + the Add card). (With a centred justify + a fixed max, the
+     column COUNT is floor(width / max), so the max must be <= width/3 to get
+     three across — hence 370, not 400.) */
+  grid-template-columns: repeat(auto-fit, minmax(300px, 370px));
   justify-content: center;
   gap: 14px;
   padding: 4px;
