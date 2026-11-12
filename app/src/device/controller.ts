@@ -4408,8 +4408,19 @@ function startAutomaticRefresh(): void {
     return;
   }
   refreshTimer = window.setInterval(() => {
+    // No point reading the device while the window is hidden/minimised — it only
+    // burns CPU and HID traffic. A visibilitychange listener refreshes on show.
+    if (typeof document !== "undefined" && document.hidden) return;
     void refreshStatus();
   }, interval);
+}
+
+// Catch up immediately when the window comes back to the foreground, since the
+// interval above skips hidden ticks.
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && refreshTimer !== null) void refreshStatus();
+  });
 }
 
 async function refreshStatus(): Promise<void> {

@@ -178,12 +178,16 @@ class NativeHid implements HID {
     for (const listener of this.#listeners[type]) listener(event);
   }
 
-  /** node-hid has no hot-plug event of its own; re-enumerate on an interval. */
+  /** node-hid has no hot-plug event of its own; re-enumerate on an interval.
+      Skip while the window is hidden/minimised (no one is watching for a newly
+      plugged mouse) to avoid burning CPU on constant USB enumeration, and use a
+      calmer 4s cadence — a new device still appears within a few seconds. */
   #startPolling(): void {
     if (this.#poll !== null) return;
     this.#poll = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       void this.#reconcile().catch(() => undefined);
-    }, 2_000);
+    }, 4_000);
   }
 }
 
