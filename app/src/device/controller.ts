@@ -1848,13 +1848,68 @@ async function refreshSidebar(devices?: HIDDevice[]): Promise<void> {
     if (!client) return null;
     return (await isConfirmedMouse(device, client)) ? device : null;
   }));
-  const mice = confirmed.filter((device): device is HIDDevice => device !== null);
+  const mice = confirmed
+    .filter((device): device is HIDDevice => device !== null)
+    // Hide devices the user removed (gated out of the grid until re-added). The
+    // active device is never hidden — activating it clears any removal flag.
+    .filter((device) => device === activeDevice || !isRemovedDevice(device));
   sidebarDevices = sidebarEntries(mice);
   emit();
 }
 
 export function deviceStorageKey(device: HIDDevice): string {
   return [device.vendorId, device.productId, device.productName || "unknown"].join(":");
+}
+
+/**
+ * Keys of devices the user explicitly removed. forget() alone can't hide a mouse
+ * that's still physically present — in the WebView2 RC the host owns navigator.hid,
+ * often has no working forget(), and re-lists (and re-fires connect for) a plugged
+ * device within a poll cycle, which reconnected a just-removed wired mouse. So a
+ * removed device is gated out of the sidebar and every AUTO-connect path until it
+ * is deliberately activated again (Add mouse), which clears the flag. Persisted so
+ * a deliberate, confirm-gated removal survives a reload, matching forget()'s own
+ * semantics.
+ */
+const REMOVED_DEVICES_STORAGE_KEY = "hypertune.removed-devices";
+
+function loadRemovedDeviceKeys(): Set<string> {
+  try {
+    const raw = localStorage.getItem(REMOVED_DEVICES_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed)
+      ? new Set(parsed.filter((key): key is string => typeof key === "string"))
+      : new Set<string>();
+  } catch {
+    return new Set<string>();
+  }
+}
+
+let removedDeviceKeys = loadRemovedDeviceKeys();
+
+function persistRemovedDeviceKeys(): void {
+  try {
+    localStorage.setItem(REMOVED_DEVICES_STORAGE_KEY, JSON.stringify([...removedDeviceKeys]));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function isRemovedDevice(device: HIDDevice): boolean {
+  return removedDeviceKeys.has(deviceStorageKey(device));
+}
+
+function markDeviceRemoved(device: HIDDevice): void {
+  removedDeviceKeys.add(deviceStorageKey(device));
+  persistRemovedDeviceKeys();
+}
+
+/** Any successful activation of a device is a deliberate "I want this mouse"
+    signal (explicit Add / card select), so it clears a prior removal. The auto
+    paths never activate a removed device, so this only ever fires on a legit
+    activation. */
+function clearDeviceRemoved(device: HIDDevice): void {
+  if (removedDeviceKeys.delete(deviceStorageKey(device))) persistRemovedDeviceKeys();
 }
 
 function storedActiveDeviceKey(): string | null {
@@ -1948,12 +2003,13 @@ export function showDeviceList(): void {
 }
 
 /**
- * Remove a mouse from the picker. Revokes its WebHID permission (forget) so it
- * drops out of getDevices() and the grid rebuild. If it's the mouse currently
- * open, the live connection is torn down first and the view returns to the
- * picker. A native-bridged device exposes no forget(); it is simply dropped from
- * the next sidebar rebuild. Idempotent: a row that no longer resolves just
- * triggers a rebuild.
+ * Remove a mouse from the picker. Flags it removed (persisted) so it's gated out
+ * of the grid and every auto-connect path — the only reliable way to hide a mouse
+ * that's still physically plugged in, since the WebView2 host re-lists and
+ * re-fires connect for present devices and its forget() is unreliable/absent. If
+ * it's the mouse currently open, the live connection is torn down first and the
+ * view returns to the picker. Re-adding it (Add mouse) clears the flag. Idempotent:
+ * a row that no longer resolves just triggers a rebuild.
  */
 export async function removeDevice(index: number): Promise<void> {
   await waitForControllerIdle();
@@ -1963,9 +2019,20 @@ export async function removeDevice(index: number): Promise<void> {
     return;
   }
   const name = device.productName || "Mouse";
-  if (device === activeDevice) {
-    // Release the live HID handle before forgetting, then clear every
-    // per-device piece of state and drop back to the picker.
+  // Flag it removed FIRST, before any teardown: a still-plugged device can be
+  // re-seen by the host mid-teardown and fire connect, and the flag makes that
+  // auto-reconnect a no-op. This is the real mechanism — forget() below is
+  // best-effort and absent in the WebView2 host.
+  markDeviceRemoved(device);
+  // Compare by KEY, not reference: resolveSidebarDevice re-enumerates getDevices(),
+  // and the WebView2 host hands back a fresh object each call, so the resolved
+  // device is never `=== activeDevice`. A reference check here silently skipped
+  // the whole teardown, leaving the "removed" mouse connected and active.
+  const removingActive = activeDevice !== null
+    && deviceStorageKey(device) === deviceStorageKey(activeDevice);
+  if (removingActive) {
+    // Release the live HID handle, clear every per-device piece of state, and
+    // drop back to the picker.
     if (active) await active.close().catch(() => undefined);
     showDisconnectedState();
     deviceListView = "list";
@@ -1975,6 +2042,8 @@ export async function removeDevice(index: number): Promise<void> {
       /* storage unavailable */
     }
   }
+  // Also revoke the WebHID grant where it works (the web beta), so the device
+  // leaves getDevices() too, not just the sidebar.
   const forgettable = device as HIDDevice & { forget?: () => Promise<void> };
   if (typeof forgettable.forget === "function") {
     await forgettable.forget().catch(() => undefined);
@@ -2055,6 +2124,10 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   buttons = null;
   clearNapeKeymaps();
   activeDevice = client.device;
+  // Activating a device is a deliberate "use this mouse" signal, so it undoes a
+  // prior removal (the only way a removed device reaches here is the user
+  // re-adding it, since every auto path skips removed devices).
+  clearDeviceRemoved(client.device);
   recordDiagnosticCommand("Read device status");
   lastRenderedStatusKey = null;
   active = client;
@@ -2174,6 +2247,13 @@ function handleHidConnect(event: HIDConnectionEvent): void {
     void refreshSidebar();
     return;
   }
+  // A removed device that's still physically present gets re-seen by the host
+  // and fires connect again — do not auto-reconnect it. It stays removed until
+  // the user re-adds it via Add mouse. (The sidebar rebuild keeps it hidden.)
+  if (isRemovedDevice(event.device)) {
+    void refreshSidebar();
+    return;
+  }
   const client = createSupportedClient(event.device);
   if (!client) {
     void refreshSidebar();
@@ -2186,6 +2266,14 @@ function handleHidConnect(event: HIDConnectionEvent): void {
       await refreshSidebar(all);
       const result = await eggWeResolveConnect(event.device, eggWeClient(), activeDevice, all);
       if (result.action === "ignore") return;
+      // The egg-we resolver derives its target from ALL authorized devices, not
+      // from event.device — so a connect for a removed WE mouse's OTHER interface
+      // (cable vs receiver, a different key) would otherwise revive it. Gate on
+      // the actual resolved target, not just the event device.
+      if (result.client && isRemovedDevice(result.client.device)) {
+        void refreshSidebar();
+        return;
+      }
       if (result.action === "refresh") {
         try {
           const status = await result.client.readStatus();
@@ -2242,7 +2330,7 @@ function handleHidDisconnect(event: HIDConnectionEvent): void {
     const webBuild = !isNativeBridgeAvailable();
     const preferredKey = storedActiveDeviceKey();
     const candidates = (await Promise.all(logical
-      .filter((device) => !(webBuild && isNativeOnlyRazer(device)))
+      .filter((device) => !(webBuild && isNativeOnlyRazer(device)) && !isRemovedDevice(device))
       .map(async (device) => {
         const client = createSupportedClient(device);
         if (!client || !(await isConfirmedMouse(device, client))) return null;
@@ -2450,7 +2538,7 @@ async function reconnectAuthorizedDevice(): Promise<void> {
       const webBuild = !isNativeBridgeAvailable();
       const preferredKey = storedActiveDeviceKey();
       const clients = logical
-        .filter((device) => !(webBuild && isNativeOnlyRazer(device)))
+        .filter((device) => !(webBuild && isNativeOnlyRazer(device)) && !isRemovedDevice(device))
         .map((device) => ({
           client: createSupportedClient(device),
           preferred: deviceStorageKey(device) === preferredKey,
