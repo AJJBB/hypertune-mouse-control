@@ -3,7 +3,7 @@
 // below it. Matches the Figma "App / Mouse WIP → Mouse - Added / Nothing
 // Connected" frames 1:1, driven by the live controller snapshot.
 import { useState, type ReactNode } from "react";
-import { Plus, Flag } from "lucide-react";
+import { Plus, Flag, Trash2 } from "lucide-react";
 import * as control from "../../device/controller";
 import { connectionText } from "../../i18n";
 import type { ControlSnapshot, SidebarDevice } from "../../device/types";
@@ -30,6 +30,8 @@ function DeviceCard({ device, snapshot }: { device: SidebarDevice; snapshot: Con
   const active = device.selected;
   const status = active ? snapshot.status : null;
   const locale = snapshot.preferences.locale;
+  const [confirming, setConfirming] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [brandFromDetail, connFromDetail] = device.detail.split(" · ");
 
   const brand = (status?.brand ?? brandFromDetail ?? "").toUpperCase();
@@ -85,14 +87,51 @@ function DeviceCard({ device, snapshot }: { device: SidebarDevice; snapshot: Con
             <div className="htv2-spec-row"><dt>Connection</dt><dd>{connection}</dd></div>
           </dl>
         </div>
-        <button
-          type="button"
-          className="htv2-card-open"
-          onClick={() => void control.openDeviceOverview(device.index)}
-        >
-          Open
-        </button>
+        <div className="htv2-card-actions">
+          <button
+            type="button"
+            className="htv2-card-open"
+            onClick={() => void control.openDeviceOverview(device.index)}
+          >
+            Open
+          </button>
+          <button
+            type="button"
+            className="htv2-card-remove"
+            aria-label={`Remove ${model}`}
+            title="Remove this mouse"
+            onClick={() => setConfirming(true)}
+          >
+            <Trash2 size={16} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        </div>
       </div>
+      {confirming ? (
+        <div className="htv2-card-confirm" role="alertdialog" aria-label="Remove mouse" aria-modal="true">
+          <p className="htv2-card-confirm-title">Remove this mouse?</p>
+          <p className="htv2-card-confirm-sub">{model} will be removed from HyperTune. You can add it again anytime.</p>
+          <div className="htv2-card-confirm-actions">
+            <button type="button" className="htv2-confirm-cancel" disabled={removing} onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="htv2-confirm-remove"
+              disabled={removing}
+              onClick={() => {
+                if (removing) return;
+                setRemoving(true);
+                void control.removeDevice(device.index).finally(() => {
+                  setRemoving(false);
+                  setConfirming(false);
+                });
+              }}
+            >
+              {removing ? "Removing…" : "Remove"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

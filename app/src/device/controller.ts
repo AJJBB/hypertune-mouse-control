@@ -1947,6 +1947,43 @@ export function showDeviceList(): void {
   emit();
 }
 
+/**
+ * Remove a mouse from the picker. Revokes its WebHID permission (forget) so it
+ * drops out of getDevices() and the grid rebuild. If it's the mouse currently
+ * open, the live connection is torn down first and the view returns to the
+ * picker. A native-bridged device exposes no forget(); it is simply dropped from
+ * the next sidebar rebuild. Idempotent: a row that no longer resolves just
+ * triggers a rebuild.
+ */
+export async function removeDevice(index: number): Promise<void> {
+  await waitForControllerIdle();
+  const device = await resolveSidebarDevice(index);
+  if (!device) {
+    await refreshSidebar();
+    return;
+  }
+  const name = device.productName || "Mouse";
+  if (device === activeDevice) {
+    // Release the live HID handle before forgetting, then clear every
+    // per-device piece of state and drop back to the picker.
+    if (active) await active.close().catch(() => undefined);
+    showDisconnectedState();
+    deviceListView = "list";
+    try {
+      localStorage.removeItem(ACTIVE_DEVICE_STORAGE_KEY);
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  const forgettable = device as HIDDevice & { forget?: () => Promise<void> };
+  if (typeof forgettable.forget === "function") {
+    await forgettable.forget().catch(() => undefined);
+  }
+  reportEvent("device_removed");
+  pushToast("success", `${name} removed`);
+  await refreshSidebar();
+}
+
 /** Open the connected device's dashboard from the sidebar. */
 export async function showDeviceDashboard(): Promise<void> {
   await waitForControllerIdle();
@@ -3645,6 +3682,43 @@ export function applyPollingRate(rate: number): void {
       await requireClientMethod("setPollingRate", "the polling rate").setPollingRate(rate);
     },
   });
+}
+
+const DEFAULT_DPI = 800;
+const DEFAULT_POLLING_HZ = 1000;
+
+/**
+ * Stage the mouse's core performance settings back to their common defaults —
+ * 800 DPI and 1000 Hz polling — as reviewable pending changes the user applies
+ * from the pending bar (nothing is written until they do). Each is staged only
+ * when the device supports it and isn't already at that default (compared
+ * against the pending-merged state so repeated clicks don't pile up), so a
+ * reset on an already-default mouse is a no-op and says so. Returns the number
+ * of settings staged.
+ */
+export function resetToDefaults(): number {
+  if (!hasActiveClient() || !latestDeviceStatus) return 0;
+  const status = withPendingChanges(latestDeviceStatus);
+  let staged = 0;
+
+  // DPI → 800 (snapped to the nearest option the device actually offers).
+  if (dpiOptions.length > 0) {
+    const target = dpiOptions.includes(DEFAULT_DPI)
+      ? DEFAULT_DPI
+      : closestDpiOption(dpiOptions, DEFAULT_DPI);
+    if (target !== null && target !== status.dpi && applyCustomDpi(DEFAULT_DPI)) staged += 1;
+  }
+
+  // Polling → 1000 Hz, when the device advertises it.
+  const rates = status.supportedPollingRates ?? [];
+  if (rates.includes(DEFAULT_POLLING_HZ) && status.pollingRateHz !== DEFAULT_POLLING_HZ) {
+    applyPollingRate(DEFAULT_POLLING_HZ);
+    staged += 1;
+  }
+
+  reportEvent("reset_to_defaults", staged);
+  if (staged === 0) pushToast("info", "Already at default settings");
+  return staged;
 }
 
 export function applyLiftOffDistance(lod: LiftOffLevel): void {

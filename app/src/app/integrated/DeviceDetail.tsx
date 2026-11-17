@@ -8,7 +8,7 @@
 // (mouse hero render, status pills, the live Mouse Test) around those cards;
 // control.css restyles the cards under `.htv2-detail2` to match the v2 look.
 import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
-import { ChevronLeft, Crosshair, Activity, Battery, BatteryCharging, Share2, Flag } from "lucide-react";
+import { ChevronLeft, Crosshair, Activity, Battery, BatteryCharging, Share2, Flag, RotateCcw } from "lucide-react";
 import * as control from "../../device/controller";
 import { activeSoftwareProfile } from "../../software-profiles";
 import { cardAvailability, hasNativeProfileManagement } from "../cards/availability";
@@ -526,6 +526,9 @@ export function DeviceDetail({ snapshot, onShareProfile }: { snapshot: ControlSn
   // showing an empty panel.
   const section = tabHasContent(requested, cards) ? requested : "overview";
   const showShare = (section === "overview" || section === "profiles") && onShareProfile;
+  // Reset restores the core performance defaults (800 DPI, 1000 Hz), so show it
+  // where those live — Overview and Performance — not on Lighting/Buttons/etc.
+  const showReset = section === "overview" || section === "performance";
   return (
     <div className="htv2-detail2">
       <TabBar cards={cards} active={section} />
@@ -541,6 +544,11 @@ export function DeviceDetail({ snapshot, onShareProfile }: { snapshot: ControlSn
         </div>
         <div className="htv2-dhead-right">
           <StatusPills snapshot={snapshot} />
+          {showReset ? (
+            <button type="button" className="htv2-dreset" title="Reset DPI and polling rate to defaults" onClick={() => control.resetToDefaults()}>
+              <RotateCcw size={15} strokeWidth={1.8} />Reset to default
+            </button>
+          ) : null}
           <button type="button" className="htv2-dreport" onClick={() => control.openReportProblem()}>
             <Flag size={15} strokeWidth={1.8} />Report Problem
           </button>

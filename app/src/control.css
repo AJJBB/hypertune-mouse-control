@@ -3697,6 +3697,7 @@ body { height: 100vh; overflow: hidden; }
 
 /* ── Device card — 390x447, r9, bg #131516 ─────────────────────────────────── */
 .htv2-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: auto;
@@ -3817,6 +3818,59 @@ body { height: 100vh; overflow: hidden; }
   transition: background .15s ease;
 }
 .htv2-card-open:hover { background: #24282a; }
+
+/* Open sits beside a compact, secondary Remove so the primary action stays
+   dominant and the destructive one reads as a quieter icon. */
+.htv2-card-actions { display: flex; gap: 8px; }
+.htv2-card-actions .htv2-card-open { flex: 1 1 auto; }
+.htv2-card-remove {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 45px;
+  height: 45px;
+  border: 1px solid var(--v2-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--v2-text-dim);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.htv2-card-remove:hover { background: rgba(224, 68, 68, .12); color: #ff6b6b; border-color: rgba(224, 68, 68, .4); }
+
+/* Confirm step — a scrim over the whole card so removal is a deliberate,
+   second action rather than a single misclick. */
+.htv2-card-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  text-align: center;
+  border-radius: 10px;
+  background: rgba(16, 18, 19, .92);
+  backdrop-filter: blur(3px);
+}
+.htv2-card-confirm-title { margin: 0; font: 600 16px/20px var(--v2-font); color: var(--v2-text); }
+.htv2-card-confirm-sub { margin: 0; font: 400 13px/18px var(--v2-font); color: var(--v2-text-dim); }
+.htv2-card-confirm-actions { display: flex; gap: 8px; margin-top: 6px; }
+.htv2-card-confirm-actions button {
+  flex: 1 1 0;
+  height: 40px;
+  border-radius: 6px;
+  font: 500 14px/17px var(--v2-font);
+  cursor: pointer;
+  transition: background .15s ease, opacity .15s ease;
+}
+.htv2-card-confirm-actions button:disabled { opacity: .6; cursor: default; }
+.htv2-confirm-cancel { border: 1px solid var(--v2-line); background: var(--v2-surface-2); color: var(--v2-text); }
+.htv2-confirm-cancel:hover:not(:disabled) { background: #24282a; }
+.htv2-confirm-remove { border: none; background: #e04444; color: #fff; }
+.htv2-confirm-remove:hover:not(:disabled) { background: #c93a3a; }
 
 /* ── Integrated root — content pane only (native draws window + sidebar) ───── */
 .htv2-root {
@@ -4455,6 +4509,13 @@ body { height: 100vh; overflow: hidden; }
 }
 .htv2-dreport:hover { background: #24282a; }
 .htv2-dreport svg { color: var(--v2-accent); }
+.htv2-dreset {
+  display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 16px; flex: 0 0 auto;
+  border: 1px solid var(--v2-line); border-radius: 9px; background: var(--v2-surface); color: var(--v2-text);
+  font: 400 13px var(--v2-font); cursor: pointer; white-space: nowrap;
+}
+.htv2-dreset:hover { background: #24282a; }
+.htv2-dreset svg { color: var(--v2-text-dim); }
 
 /* The page chrome (tabs / header / legal) stays put; only the inner content
    areas (card column, overview info, mouse test) scroll, and only if they must. */
