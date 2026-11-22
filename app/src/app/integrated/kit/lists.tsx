@@ -2,8 +2,9 @@
 // Button remap grid · Remap row · Callout label · Profile card · Profile list · Profile row ·
 // DPI stage table · DPI stage row. Geometry/tokens mirror Ivan's Figma library 1:1
 // (scratch-figma/specs/*.txt). Presentational + controlled: props in, callbacks out.
-import { useEffect, useId, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Icon } from "./icons";
+import { useFocusRescue } from "./focus";
 import { Button, IconButton, StatusPill } from "./basics";
 import { Segmented, StepPicker, TextInput } from "./controls";
 import "./lists.css";
@@ -66,8 +67,11 @@ export function RemapRow({
   const disabled = state === "disabled";
   const changed = state === "changed";
   const recording = state === "recording";
+  // Reset hides itself once the mapping is back to default: focus the action control.
+  const rowRef = useRef<HTMLDivElement>(null);
+  useFocusRescue(rowRef, { prefer: (scope) => scope.querySelector<HTMLElement>(".mk-remap-row__control button, .mk-remap-row__capture") });
   return (
-    <div className={cx("mk-remap-row", `is-${state}`, className)} aria-disabled={disabled || undefined}>
+    <div ref={rowRef} className={cx("mk-remap-row", `is-${state}`, className)} aria-disabled={disabled || undefined}>
       <div className="mk-remap-row__name">
         <span className="mk-remap-row__button">{button}</span>
         {disabled ? <Icon name="lock" size={18} className="mk-remap-row__lock" title="Can't be remapped" /> : null}
@@ -205,8 +209,11 @@ export function ProfileCard({
 }: ProfileCardProps): ReactNode {
   const headId = useId();
   const showActivate = !!onActivate && state !== "active";
+  // Activate disappears once the card is active: keep focus on the card's Open.
+  const cardRef = useRef<HTMLElement>(null);
+  useFocusRescue(cardRef, { prefer: (scope) => scope.querySelector<HTMLElement>(".mk-profile-card__action") });
   return (
-    <article className={cx("mk-profile-card", `is-${state}`, className)} aria-labelledby={headId}>
+    <article ref={cardRef} className={cx("mk-profile-card", `is-${state}`, className)} aria-labelledby={headId}>
       <header className="mk-profile-card__header">
         <span className="mk-profile-card__slot">{slot}</span>
         {state === "active" ? <StatusPill type="active" label={activeLabel} /> : null}
@@ -345,10 +352,19 @@ export interface ProfileListProps {
 }
 
 /** App-saved profiles: header with Save current, then Profile rows (gap 5). */
-export function ProfileList({ title = "Saved Profiles", onSaveCurrent, saveLabel = "Save current", children, className }: ProfileListProps): ReactNode {
+export function ProfileList({ title = "Saved Profiles", onSaveCurrent, saveLabel = "Save Current", children, className }: ProfileListProps): ReactNode {
   const headId = useId();
+  // Apply turns a row into the active row and rename confirm closes its field;
+  // either can unmount the focused control. Return focus to the same profile's
+  // row: its Rename button after a rename, otherwise its first control.
+  const listRef = useRef<HTMLElement>(null);
+  useFocusRescue(listRef, {
+    item: ".mk-profile-row",
+    key: ".mk-profile-row__name",
+    prefer: (scope, was) => (was.renaming ? scope.querySelector<HTMLElement>('[aria-label^="Rename"]') : null),
+  });
   return (
-    <section className={cx("mk-profile-list", className)} aria-labelledby={headId}>
+    <section ref={listRef} className={cx("mk-profile-list", className)} aria-labelledby={headId}>
       <ListHeader id={headId} title={title}
         action={onSaveCurrent ? <Button label={saveLabel} icon="save" onClick={onSaveCurrent} /> : null} />
       {children}

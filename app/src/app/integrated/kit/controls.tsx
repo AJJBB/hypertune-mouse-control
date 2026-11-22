@@ -407,12 +407,14 @@ export function ArrowStepper<T>({ options, value, onChange, ariaLabel, disabled 
   return (
     <div role="group" aria-label={ariaLabel} className={cx("mk-arrows", disabled && "is-disabled")}>
       <button type="button" className={cx("mk-arrows__btn", !disabled && prev < 0 && "is-edge")}
-        aria-label={`Previous ${ariaLabel}`} disabled={disabled || prev < 0} onClick={() => go(prev)} onKeyDown={onKey}>
+        aria-label={`Previous ${ariaLabel}`} disabled={disabled} aria-disabled={(!disabled && prev < 0) || undefined}
+        onClick={() => go(prev)} onKeyDown={onKey}>
         <Icon name="tri-left" size={18} />
       </button>
       <div className="mk-arrows__value" aria-live="polite">{sel >= 0 ? options[sel].label : "–"}</div>
       <button type="button" className={cx("mk-arrows__btn", !disabled && next < 0 && "is-edge")}
-        aria-label={`Next ${ariaLabel}`} disabled={disabled || next < 0} onClick={() => go(next)} onKeyDown={onKey}>
+        aria-label={`Next ${ariaLabel}`} disabled={disabled} aria-disabled={(!disabled && next < 0) || undefined}
+        onClick={() => go(next)} onKeyDown={onKey}>
         <Icon name="tri-right" size={18} />
       </button>
     </div>

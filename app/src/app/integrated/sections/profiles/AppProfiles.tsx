@@ -173,7 +173,7 @@ export function AppProfiles({ snapshot }: { snapshot: ControlSnapshot }): ReactN
               ) : null}
               {profiles.length === 0 && !creating ? (
                 <ProfileRow name="" state="empty" emptyTitle="No saved profiles yet"
-                  emptyNote="Save the current settings to switch back to them later." saveLabel="Save current" onSave={startCreate} />
+                  emptyNote="Save the current settings to switch back to them later." saveLabel="Save Current" onSave={startCreate} />
               ) : null}
               {profiles.map((profile) => (
                 renamingId === profile.id ? (

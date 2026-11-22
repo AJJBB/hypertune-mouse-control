@@ -170,6 +170,16 @@ export function MouseTestSection({ snapshot }: { snapshot: ControlSnapshot; onSh
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
+  // Start / Cancel / Run again unmount when pressed; if that dropped focus to
+  // <body>, hand it to the control the new phase shows so keyboard users keep
+  // their place.
+  const screenRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = document.activeElement;
+    if (el && el !== document.body) return;
+    screenRef.current?.querySelector<HTMLButtonElement>(".mk-mt__focus-target")?.focus();
+  }, [phase]);
+
   // Live input: button/wheel check (always on) + the polling sampler feeds the
   // interval buffer only while a timed run is sampling.
   useEffect(() => {
@@ -185,6 +195,9 @@ export function MouseTestSection({ snapshot }: { snapshot: ControlSnapshot; onSh
     };
     const onUp = (): void => setPressed(null);
     const onWheel = (e: WheelEvent): void => {
+      // Horizontal-only scrolling (tilt wheel, thumb wheel, Shift+wheel) isn't
+      // the vertical wheel under test.
+      if (e.deltaY === 0) return;
       setScroll((s) => (e.deltaY < 0 ? { ...s, up: s.up + 1 } : { ...s, down: s.down + 1 }));
       setWheelDir(e.deltaY < 0 ? "up" : "down");
       window.clearTimeout(wheelTimerRef.current);
@@ -304,7 +317,7 @@ export function MouseTestSection({ snapshot }: { snapshot: ControlSnapshot; onSh
             </svg>
             <span className="mk-mt__grille" aria-hidden="true" />
             <div className="mk-mt__body">
-              <div className={`mk-mt__screen is-${phase}`} role="group" aria-label="Polling rate test">
+              <div ref={screenRef} className={`mk-mt__screen is-${phase}`} role="group" aria-label="Polling rate test">
                 <span className="mk-mt__dots" aria-hidden="true" />
                 <span className="mk-mt__sheen" aria-hidden="true" />
                 {phase === "idle" ? (
@@ -324,7 +337,7 @@ export function MouseTestSection({ snapshot }: { snapshot: ControlSnapshot; onSh
                       <path d={AMBIENT_PATH} className="mk-mt__ambient-line" stroke={`url(#${gid}-amb)`} vectorEffect="non-scaling-stroke" />
                     </svg>
                     <div className="mk-mt__start-well">
-                      <Button label="Start" size="large" variant="primary" className="mk-mt__start" onClick={startTest} />
+                      <Button label="Start" size="large" variant="primary" className="mk-mt__start mk-mt__focus-target" onClick={startTest} />
                     </div>
                     <div className="mk-mt__durations">
                       <Segmented<Duration> options={DURATIONS} value={duration} onChange={setDuration} ariaLabel="Test duration" />
@@ -345,8 +358,10 @@ export function MouseTestSection({ snapshot }: { snapshot: ControlSnapshot; onSh
                       </svg>
                     ) : null}
                     {reading !== null ? (
-                      <div className="mk-mt__reading" aria-live="polite">
-                        <span className="mk-mt__hz mk-t-display64 mk-tnum">{reading}</span>
+                      <div className="mk-mt__reading">
+                        {/* The live digits change on every pointer move; only the
+                            phase (start / final average) is announced. */}
+                        <span className="mk-mt__hz mk-t-display64 mk-tnum" aria-hidden={phase === "sampling" || undefined}>{reading}</span>
                         <span className="mk-mt__hz-unit">Hz</span>
                         {phase === "done" ? <span className="mk-sr-only">average</span> : null}
                       </div>
@@ -361,6 +376,10 @@ export function MouseTestSection({ snapshot }: { snapshot: ControlSnapshot; onSh
                     ) : null}
                   </>
                 )}
+                <span className="mk-sr-only" role="status" aria-live="polite">
+                  {phase === "sampling" ? "Sampling. Move your mouse."
+                    : phase === "done" ? `Finished. Average ${hzText(results?.avgHz ?? 0)} Hz.` : ""}
+                </span>
                 {/* Status strip along the top of the screen: guidance, progress /
                     sample count, and Cancel (running) or Run again (finished). */}
                 <div className="mk-mt__bar">
@@ -370,9 +389,9 @@ export function MouseTestSection({ snapshot }: { snapshot: ControlSnapshot; onSh
                     {note}
                   </span>
                   {phase === "sampling" ? (
-                    <Button label="Cancel" size="medium" variant="neutral" onClick={reset} />
+                    <Button label="Cancel" size="medium" variant="neutral" className="mk-mt__focus-target" onClick={reset} />
                   ) : phase === "done" ? (
-                    <Button label="Run again" icon="reset" size="medium" variant="primary" onClick={reset} />
+                    <Button label="Run again" icon="reset" size="medium" variant="primary" className="mk-mt__focus-target" onClick={reset} />
                   ) : null}
                 </div>
               </div>

@@ -47,7 +47,15 @@ export function PerformanceSection({ snapshot }: { snapshot: ControlSnapshot; on
   // flex child of the scroll area would shrink, squashing the Segmented cards).
   const right = (
     <div className="mk-perf-right">
-      {anyRight ? null : <EmptyNote>{snapshot.settingsPending ? "Reading this mouse's settings…" : "This mouse has no performance settings."}</EmptyNote>}
+      {anyRight ? null : (
+        <EmptyNote>
+          {/* statusNote is only set for failed / read-only states, so a real
+              first read still shows the loading line. */}
+          {snapshot.settingsPending
+            ? (snapshot.status.ui?.statusNote ?? "Reading this mouse's settings…")
+            : "This mouse has no performance settings."}
+        </EmptyNote>
+      )}
       {has.polling ? <PollingGroup snapshot={snapshot} /> : null}
       {has.sensor ? <LiftOffGroup snapshot={snapshot} /> : null}
       {has.processing ? <ProcessingGroup snapshot={snapshot} /> : null}

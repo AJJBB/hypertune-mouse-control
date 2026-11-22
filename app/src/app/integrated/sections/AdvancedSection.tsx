@@ -132,7 +132,7 @@ function sleepRows(snapshot: Snap): ReactNode[] {
 
   const timer = keychronSleep && asleep ? (
     <TimeStepper ariaLabel={t(locale, "adv.sleepTimeout")} seconds={status.sleepTimeout!}
-      min={0} max={KEYCHRON_SLEEP_MAX_SECONDS} disabled={snapshot.settingsPending}
+      min={KEYCHRON_SLEEP_MIN_SECONDS} max={KEYCHRON_SLEEP_MAX_SECONDS} disabled={snapshot.settingsPending}
       onChange={(total) => {
         if (total < KEYCHRON_SLEEP_MIN_SECONDS) {
           control.reportStatus(t(locale, "adv.sleepMin"));

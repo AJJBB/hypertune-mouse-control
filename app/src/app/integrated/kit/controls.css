@@ -170,7 +170,8 @@
 }
 .mk-arrows__btn svg { opacity: 0.5; }
 .mk-arrows__btn:hover:not(:disabled) { background: var(--mk-bg-control-hover); }
-.mk-arrows__btn.is-edge { opacity: 0.35; }
+.mk-arrows__btn.is-edge { opacity: 0.35; cursor: default; }
+.mk-arrows__btn.is-edge:hover { background: transparent; }
 .mk-arrows__value {
   flex: 1 1 0;
   min-width: 0;

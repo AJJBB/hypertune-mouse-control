@@ -194,7 +194,9 @@ export function DpiGroup({ snapshot }: { snapshot: ControlSnapshot }): ReactNode
     <>
       <PerfHeader
         title="DPI"
-        description={stages ? "Presets and custom values change the current stage." : "Pick a common value or type your own."}
+        description={`${stages ? "Presets and custom values change the current stage." : "Pick a common value or type your own."}${
+          // A stored profile is open but this control edits the live (host) value.
+          snapshot.editedProfile !== null ? " Live (host) only, not saved to the open profile." : ""}`}
       />
       {values.length > 0 ? (
         <Segmented

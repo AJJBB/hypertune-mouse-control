@@ -39,7 +39,8 @@ export default function ShowcaseDisplay(): ReactNode {
     setCounts((c) => ({ ...c, [b]: c[b] + 1 }));
   };
   const onWheel = (e: globalThis.WheelEvent): void => {
-    const d = e.deltaY < 0 ? "up" : "down";
+    if (e.deltaY === 0) return;
+    const d =e.deltaY < 0 ? "up" : "down";
     setScroll((s) => ({ ...s, [d]: s[d] + 1 }));
     setWheel(d);
     window.setTimeout(() => setWheel(null), 150);

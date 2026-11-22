@@ -1,16 +1,17 @@
 /* Performance tab (sections/PerformanceSection.tsx). Scoped under .mk; tokens only. */
 
-/* Left column: the render fills what the docked DPI control leaves. A tall stage
-   table (up to 8 stages on some mice, while the pending bar takes 65 px of the
-   column) may squeeze the render below layout's 160 floor rather than push the
-   table out of the column. */
+/* Left column: the render fills what the docked DPI control leaves, but keeps a
+   150 px floor so a tall stage table (up to 8 stages, plus the 65 px pending
+   bar) can't shrink the mouse to a thumbnail (150: a 6-stage table still fits whole); past that the table scrolls
+   inside its own dock instead of leaving the column. */
 .mk .mk-perf-left {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
-.mk .mk-perf-left .mk-render__stage { min-height: 0; }
+.mk .mk-perf-left .mk-render__stage { flex: 1 1 0; min-height: 150px; }
+.mk .mk-perf-left .mk-render__footer { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 
 /* Right column content: one non-shrinking stack inside the scroll area, gap 10
    between Section headers, cards and rows (as on the reference screens). */

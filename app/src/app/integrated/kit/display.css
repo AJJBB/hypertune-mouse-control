@@ -122,8 +122,8 @@
 }
 .mk .mk-readout__arrow--prev { left: 32px; }
 .mk .mk-readout__arrow--next { right: 32px; }
-.mk .mk-readout__arrow:hover:not(:disabled) { background: var(--mk-bg-control-hover); }
-.mk .mk-readout__arrow:disabled { opacity: 0.4; }
+.mk .mk-readout__arrow:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--mk-bg-control-hover); }
+.mk .mk-readout__arrow:disabled, .mk .mk-readout__arrow[aria-disabled="true"] { opacity: 0.4; cursor: default; }
 
 /* ───────────── Section header inside panels (pad 4/0/4/10, 27 high) ───────────── */
 .mk .mk-display-header {

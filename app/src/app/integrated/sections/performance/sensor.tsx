@@ -146,7 +146,8 @@ export function PollingGroup({ snapshot }: { snapshot: ControlSnapshot }): React
       : "Higher rates update the cursor more often but use more battery.");
   return (
     <>
-      <PerfHeader title="Polling rate" description={note} />
+      <PerfHeader title="Polling rate"
+        description={snapshot.editedProfile !== null ? `${note} Live (host) only, not saved to the open profile.` : note} />
       <RateControl
         rates={advertised}
         value={status.pollingRateHz}

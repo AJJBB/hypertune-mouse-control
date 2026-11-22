@@ -21,7 +21,10 @@
   text-align: center;
   overflow-wrap: normal;
 }
-.mk .mk-lighting__effects.is-many .mk-seg--icon { padding: 0 6px; }
+/* With many effects some labels wrap; top-anchor every segment and reserve two
+   label lines so the icon row stays level whether a label wraps or not. */
+.mk .mk-lighting__effects.is-many .mk-seg--icon { padding: 4px 6px 0; justify-content: flex-start; }
+.mk .mk-lighting__effects.is-many .mk-seg--icon .mk-seg__label { min-height: calc(2 * 16.9px); display: flex; align-items: center; }
 
 /* Zone swatches for individually painted LEDs: the library swatch is 84 wide; more
    than seven of them share the column width instead of overflowing it. */

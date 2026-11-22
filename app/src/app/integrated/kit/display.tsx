@@ -68,14 +68,18 @@ export function ReadoutTile({
       <span className="mk-readout__glow mk-readout__glow--right" aria-hidden="true"><span /></span>
       {ticks ? <ReadoutRuler /> : null}
       {onPrev ? (
-        <button type="button" className="mk-readout__arrow mk-readout__arrow--prev" onClick={onPrev}
-          disabled={prevDisabled} aria-label={prevLabel} title={prevLabel}>
+        // aria-disabled, not disabled: a native-disabled button drops keyboard
+        // focus to <body> the moment it reaches the first/last value.
+        <button type="button" className="mk-readout__arrow mk-readout__arrow--prev"
+          onClick={() => { if (!prevDisabled) onPrev(); }}
+          aria-disabled={prevDisabled || undefined} aria-label={prevLabel} title={prevLabel}>
           <Icon name="tri-left" size={26} />
         </button>
       ) : null}
       {onNext ? (
-        <button type="button" className="mk-readout__arrow mk-readout__arrow--next" onClick={onNext}
-          disabled={nextDisabled} aria-label={nextLabel} title={nextLabel}>
+        <button type="button" className="mk-readout__arrow mk-readout__arrow--next"
+          onClick={() => { if (!nextDisabled) onNext(); }}
+          aria-disabled={nextDisabled || undefined} aria-label={nextLabel} title={nextLabel}>
           <Icon name="tri-right" size={26} />
         </button>
       ) : null}

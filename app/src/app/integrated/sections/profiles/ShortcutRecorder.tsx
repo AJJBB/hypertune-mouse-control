@@ -10,7 +10,7 @@ import * as control from "../../../../device/controller";
 import type { InterfaceLocale } from "../../../../interface-preferences";
 import { t } from "../../../../i18n";
 import { hidKeyForCode, shortcutLabel } from "../../../hid-keys";
-import { Button } from "../../kit";
+import { Button, trapTab } from "../../kit";
 
 export interface RecorderTarget { layer: "primary" | "g-shift"; button: number; name: string }
 
@@ -34,6 +34,7 @@ export function ShortcutRecorder({ target, locale, onClose }: { target: Recorder
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (!recording) {
       if (event.key === "Escape") onClose();
+      else if (event.key === "Tab" && panel.current) trapTab(event, panel.current);
       return;
     }
     event.preventDefault(); event.stopPropagation();

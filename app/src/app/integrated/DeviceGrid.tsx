@@ -13,7 +13,7 @@ import * as control from "../../device/controller";
 import { connectionText } from "../../i18n";
 import type { ControlSnapshot, SidebarDevice } from "../../device/types";
 import { deviceImage } from "../../ui/device-images";
-import { BatteryIcon, Button, Icon, IconButton, InfoRow, StatusPill } from "./kit";
+import { BatteryIcon, Button, Icon, IconButton, InfoRow, StatusPill, trapTab } from "./kit";
 import { ConnectNoticeDialog } from "./ConnectNoticeDialog";
 import { LegalCredit } from "./LegalCredit";
 import "./home.css";
@@ -72,10 +72,17 @@ function DeviceCard({ device, snapshot }: { device: SidebarDevice; snapshot: Con
   const battery = status?.batteryPercent ?? null;
   const charging = isCharging(status?.batteryState);
 
-  // Keyboard users land on Cancel when the confirm opens; Esc backs out.
+  // Keyboard users land on Cancel when the confirm opens; Esc / Cancel hand
+  // focus back to the trash button that opened it.
+  const cardRef = useRef<HTMLElement>(null);
+  const wasConfirming = useRef(false);
   useEffect(() => {
-    if (!confirming) return;
-    confirmRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    if (confirming) {
+      confirmRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    } else if (wasConfirming.current) {
+      cardRef.current?.querySelector<HTMLButtonElement>(".mk-home-card__remove")?.focus();
+    }
+    wasConfirming.current = confirming;
   }, [confirming]);
 
   const remove = (): void => {
@@ -88,7 +95,7 @@ function DeviceCard({ device, snapshot }: { device: SidebarDevice; snapshot: Con
   };
 
   return (
-    <article className={`mk-home-card${active ? " is-active" : ""}`} aria-label={fullName}>
+    <article ref={cardRef} className={`mk-home-card${active ? " is-active" : ""}`} aria-label={fullName}>
       <div className="mk-home-card__render">
         <img
           className="mk-home-card__img"
@@ -145,7 +152,10 @@ function DeviceCard({ device, snapshot }: { device: SidebarDevice; snapshot: Con
           role="alertdialog"
           aria-label="Remove mouse"
           aria-modal="true"
-          onKeyDown={(e) => { if (e.key === "Escape" && !removing) setConfirming(false); }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !removing) setConfirming(false);
+            else if (e.key === "Tab" && confirmRef.current) trapTab(e, confirmRef.current);
+          }}
         >
           <p className="mk-home-card__confirm-title mk-t-title16">Remove this mouse?</p>
           <p className="mk-home-card__confirm-sub mk-t-body14">{fullName} will be removed from HyperTune. You can add it again anytime.</p>
