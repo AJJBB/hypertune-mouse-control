@@ -1,0 +1,19 @@
+/* Integrated device page frame (Figma "main frame": 1210×695, padding 10, gap 10, bg/page). */
+.mk .mk-detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 1210px;
+  margin: 0 auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--mk-bg-page);
+}
+.mk .mk-detail__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

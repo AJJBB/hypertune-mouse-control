@@ -1,0 +1,68 @@
+/* Lighting tab (Figma "Mouse - Lighting"). Scoped under .mk; tokens only. */
+
+/* Right column stack: zone card → Effects → Color group, gap 10 (the column's own gap). */
+.mk .mk-lighting {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* The reference screen's group titles ("Effects", "Color") sit in 39-tall frames
+   (padding 10/0/10/10), taller than the library Section header's 4/0/4/10. */
+.mk .mk-lighting > .mk-section-header { padding: 10px 0 10px 10px; }
+
+/* Effects (Segmented / Icon): long driver names ("Breathing random") wrap onto a
+   second line inside the 60-tall segment instead of being cut off. */
+.mk .mk-lighting__effects .mk-seg--icon .mk-seg__label {
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: normal;
+}
+.mk .mk-lighting__effects.is-many .mk-seg--icon { padding: 0 6px; }
+
+/* Zone swatches for individually painted LEDs: the library swatch is 84 wide; more
+   than seven of them share the column width instead of overflowing it. */
+.mk .mk-lighting__cells.mk-zone-picker { max-width: 100%; }
+.mk .mk-lighting__cells .mk-zone { flex: 0 1 84px; min-width: 0; }
+.mk .mk-lighting__cells .mk-zone__label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+.mk .mk-lighting__color { width: 100%; }
+
+/* The kit Slider moves its thumb by translating a full-width "mover" box, which sticks
+   out past the slider near the max end and gives the column a horizontal scroll overflow.
+   Clip it at the slider (with room for the thumb's focus ring). */
+.mk .mk-lighting .mk-slider { contain: paint; overflow-clip-margin: 4px; }
+
+.mk .mk-lighting__note { margin: 0; padding: 0 10px; color: var(--mk-text-3); }
+
+/* Receiver / zone-0 group folds under its own header. */
+.mk .mk-lighting__receiver .mk-collapsible__content { gap: 10px; padding-top: 5px; }
+
+/* Product render: the reference shows the mouse lit in the edited zone's colour —
+   a soft glow in that colour behind the render. */
+.mk .mk-lighting__render {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mk .mk-lighting__render.has-glow::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 46%;
+  height: 52%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center,
+    color-mix(in srgb, var(--mk-light-glow) 22%, transparent) 0%,
+    color-mix(in srgb, var(--mk-light-glow) 8%, transparent) 45%,
+    transparent 72%);
+  filter: blur(30px);
+  pointer-events: none;
+}

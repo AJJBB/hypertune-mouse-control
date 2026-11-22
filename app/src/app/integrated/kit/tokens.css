@@ -1,0 +1,115 @@
+/* HyperTune Mouse Component System — foundations.
+   Source of truth: Ivan's "Mouse UI" variables + "Mouse/…" text styles in
+   Figma Hypertune v2.0 (see hypertune-mouse-components.md). Values are copied
+   verbatim; never type a hex in a component — use these tokens.
+   Everything is scoped under `.mk` (the integrated root) so none of it leaks
+   into the standalone web shell. */
+
+.mk {
+  /* Colour — Mouse UI collection */
+  --mk-bg-page: #0e1011;
+  --mk-bg-card: #131516;
+  --mk-bg-raised: #17191a;
+  --mk-bg-control: #1d2021;
+  --mk-bg-control-hover: #25292a;
+  --mk-bg-pill: #1b1c1d;
+  --mk-bg-soft: rgba(27, 28, 29, 0.5);
+  --mk-bg-track: rgba(10, 10, 10, 0.8);
+  --mk-accent: #13f287;
+  --mk-accent-surface: #1a4233;
+  --mk-accent-tint: rgba(26, 66, 51, 0.4);
+  --mk-accent-border: rgba(19, 242, 135, 0.45);
+  --mk-primary-hover: #1f4d3b;
+  --mk-text: #ffffff;
+  --mk-text-2: rgba(255, 255, 255, 0.5);
+  --mk-text-3: rgba(255, 255, 255, 0.3);
+  --mk-text-muted: #8d8e8e;
+  --mk-icon-muted: #77797a;
+  --mk-border: rgba(255, 255, 255, 0.08);
+  --mk-fill-subtle: rgba(255, 255, 255, 0.05);
+  --mk-warning: #efbf04;
+  --mk-danger: #ff4d4d;
+  --mk-danger-border: rgba(255, 77, 77, 0.7);
+
+  /* Values the library uses that have no Mouse UI variable (raw from Figma):
+     Error fill of Number field / Text input, the open-menu shadow, and the
+     Active Callout / Active Profile-card header gradients. */
+  --mk-field-error: #15110f;
+  --mk-shadow-menu: 0 12px 28px rgba(0, 0, 0, 0.45);
+  --mk-callout-active-fill: linear-gradient(90deg, #1f4836 0%, #0e1011 100%);
+  --mk-profile-active-header: linear-gradient(90deg, #163428 0%, #131516 100%);
+
+  /* Shape */
+  --mk-r-card: 9px;
+  --mk-r-row: 8px;
+  --mk-r-control: 8px;
+  --mk-r-segment: 6px;
+  --mk-r-tab: 10px;
+  --mk-r-pill: 99px;
+  --mk-r-modal: 16px;
+  --mk-r-info: 4px;
+
+  /* Layout constants from the spec */
+  --mk-control-w: 290px;   /* control slot on the right of a Setting row */
+  --mk-control-h: 40px;
+  --mk-col-left: 500px;    /* content row: left column (mouse render) */
+  --mk-col-right: 665px;   /* content row: right column (settings) */
+  --mk-col-gap: 25px;
+
+  /* Type. The app face is Inter Display; Google's Inter carries the optical-size
+     axis, and Inter Display is Inter at opsz 32 — so this IS the real face. */
+  --mk-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  font-family: var(--mk-font);
+  font-variation-settings: "opsz" 32;
+  font-optical-sizing: none;
+  color: var(--mk-text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.mk *, .mk *::before, .mk *::after { box-sizing: border-box; }
+/* Inter Display on every node. The text-style classes (and many component rules)
+   use the `font:` shorthand, which resets font-variation-settings to normal and
+   would silently drop back to Inter's text cut — measurably wider than Ivan's
+   screens. Re-assert the Display optical size after any shorthand. */
+.mk *, .mk *::before, .mk *::after {
+  font-variation-settings: "opsz" 32 !important;
+  font-optical-sizing: none !important;
+}
+.mk button, .mk input, .mk select, .mk textarea {
+  font-family: inherit;
+  font-variation-settings: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+.mk button { cursor: pointer; }
+.mk button:disabled { cursor: default; }
+.mk :focus-visible { outline: 2px solid var(--mk-accent-border); outline-offset: 2px; }
+
+/* Text styles — Mouse/… (size / line-height ratio 1.21, as in Figma) */
+.mk-t-title16    { font: 500 16px/19.4px var(--mk-font); letter-spacing: 0; }
+.mk-t-label14    { font: 500 14px/16.9px var(--mk-font); letter-spacing: 0; }
+.mk-t-body14     { font: 400 14px/16.9px var(--mk-font); letter-spacing: 0; }
+.mk-t-button16   { font: 400 16px/19.4px var(--mk-font); letter-spacing: 0; }
+.mk-t-caption12  { font: 400 12px/14.5px var(--mk-font); letter-spacing: 0; }
+.mk-t-caption12m { font: 500 12px/14.5px var(--mk-font); letter-spacing: 0; }
+.mk-t-heading18  { font: 600 18px/21.8px var(--mk-font); letter-spacing: -0.1px; }
+.mk-t-heading22  { font: 600 22px/26.6px var(--mk-font); letter-spacing: -0.1px; }
+.mk-t-display42  { font: 600 42px/50.8px var(--mk-font); letter-spacing: 0; }
+.mk-t-display64  { font: 600 64px/64px var(--mk-font); letter-spacing: 0; }
+.mk-t-micro11    { font: 400 11px/13.3px var(--mk-font); letter-spacing: 0; }
+
+.mk-c-primary   { color: var(--mk-text); }
+.mk-c-secondary { color: var(--mk-text-2); }
+.mk-c-tertiary  { color: var(--mk-text-3); }
+.mk-c-muted     { color: var(--mk-text-muted); }
+.mk-c-accent    { color: var(--mk-accent); }
+.mk-c-warning   { color: var(--mk-warning); }
+.mk-c-danger    { color: var(--mk-danger); }
+
+.mk-tnum { font-variant-numeric: tabular-nums; }
+.mk-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}

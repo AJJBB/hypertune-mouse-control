@@ -304,6 +304,12 @@ export interface MouseStatus {
    */
   buttonMappings?: Record<string, string>;
   /**
+   * Factory action per button (same keys as `buttonMappings`), for drivers that
+   * read a factory-fresh button back as its real action rather than "Default"
+   * (Keychron). Lets the UI tell "changed" from "at factory default".
+   */
+  buttonDefaults?: Record<string, string>;
+  /**
    * Named power/performance modes a device offers as a single choice, with
    * `powerMode` holding the current one and a `setPowerMode(name)` method.
    * Distinct from the boolean `performanceMode` above, which is a switch.

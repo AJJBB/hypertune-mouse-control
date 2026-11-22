@@ -8,6 +8,7 @@ export const PREVIEW_KEYS = [
   "list",
   "slots",
   "superstrike",
+  "grid",
   "pulsar",
   "pulsar-pro",
   "egg-op1",
@@ -33,10 +34,12 @@ export const PREVIEW_KEYS = [
   "g703",
   "terra-pro",
   "logitech-legacy",
+  "vxe-r1",
+  "incott",
 ] as const;
 
 export type PreviewMode = typeof PREVIEW_KEYS[number];
-export type FixturePreviewMode = Exclude<PreviewMode, "list" | "slots" | "superstrike">;
+export type FixturePreviewMode = Exclude<PreviewMode, "list" | "slots" | "superstrike" | "grid">;
 
 /** Preview fixtures are available locally and on the deployed insiders app,
     but never on a stable production build. */
@@ -77,6 +80,9 @@ export function parsePreviewMode(value: string | null): PreviewMode | null {
     case "mx-master-3s": return "mx-master-3s";
     case "g703": return "g703";
     case "logitech-legacy": return "logitech-legacy";
+    case "vxe-r1": return "vxe-r1";
+    case "incott": return "incott";
+    case "grid": return "grid";
     default: return null;
   }
 }

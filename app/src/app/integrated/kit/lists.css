@@ -1,0 +1,369 @@
+/* Mouse Component System — lists group styles (scoped under .mk).
+   Geometry from scratch-figma/specs: button-remap-grid, remap-row, callout-label, profile-card,
+   profile-list, profile-row, dpi-stage-table, dpi-stage-row (Figma padding: top/right/bottom/left). */
+
+/* Text boxes here use Figma's rounded line boxes (15 / 17 / 19 / 27) so hugging cards land on the
+   library's exact heights (e.g. Callout 47, Profile card 349, DPI stage table 322).
+   (The Active Callout / Active Profile-card gradients live in tokens.css.) */
+
+/* tokens.css has `.mk button { color: inherit }` (outranks one class): pin base colours of
+   button-based parts here with `.mk .x`. */
+.mk .mk-callout, .mk .mk-profile-card__rename, .mk .mk-dpi-row__link, .mk .mk-dpi-row__remove { color: var(--mk-text); }
+.mk .mk-dpi-row__index { color: var(--mk-text-muted); }
+
+/* ───────── List header (Section header as used by the grid / profile list) ───────── */
+
+.mk-list-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 0 4px 10px;
+}
+.mk-list-header__text { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.mk-list-header__title-row { display: flex; align-items: center; gap: 10px; }
+.mk-list-header__title {
+  margin: 0;
+  color: var(--mk-text);
+  font: 500 16px/19.4px var(--mk-font);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.mk-list-header__action { flex: none; display: flex; align-items: center; gap: 10px; }
+
+/* ───────── Remap row ───────── */
+
+.mk-remap-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 9px 10px 9px 15px;
+  border-radius: var(--mk-r-row);
+  background: var(--mk-bg-card);
+}
+.mk-remap-row.is-disabled { opacity: 0.4; }
+/* The whole row is dimmed once — a disabled control inside must not dim again. */
+.mk-remap-row.is-disabled .mk-remap-row__control > * { opacity: 1; }
+.mk-remap-row.is-disabled .mk-remap-row__control { pointer-events: none; }
+.mk-remap-row__name {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mk-remap-row__button {
+  flex: none;
+  color: var(--mk-text);
+  font: 500 14px/16.9px var(--mk-font);
+  white-space: nowrap;
+}
+.mk-remap-row__lock { flex: none; display: block; opacity: 0.6; color: var(--mk-text); }
+.mk-remap-row__dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--mk-accent); }
+.mk-remap-row__note {
+  min-width: 0;
+  color: var(--mk-text-2);
+  font: 400 12px/14.5px var(--mk-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-remap-row__control { flex: none; width: 220px; display: flex; }
+.mk-remap-row__capture {
+  flex: none;
+  width: 220px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+  cursor: default;
+}
+.mk-remap-row__hint {
+  color: var(--mk-accent);
+  font: 500 14px/16.9px var(--mk-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: mk-remap-pulse 1.6s ease-in-out infinite;
+}
+@keyframes mk-remap-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .mk-remap-row__hint { animation: none; } }
+
+/* ───────── Button remap grid ───────── */
+
+.mk-remap-grid { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+
+/* ───────── Callout label ───────── */
+
+.mk-callout {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 3px;
+  width: 160px;
+  margin: 0;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--mk-r-info);
+  background: var(--mk-bg-pill);
+  text-align: left;
+  transition: background-color 120ms ease;
+}
+.mk-callout__button, .mk-callout__action {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-callout__button { color: var(--mk-text-2); font: 400 12px/15px var(--mk-font); }
+.mk-callout__action { color: var(--mk-text); font: 500 14px/17px var(--mk-font); }
+.mk-callout.is-interactive:not(.is-active):hover, .mk-callout.is-hover { background: var(--mk-bg-control); }
+.mk-callout.is-active { background: var(--mk-callout-active-fill); }
+.mk-callout.is-active .mk-callout__action { color: var(--mk-accent); }
+
+/* ───────── Profile card ───────── */
+
+.mk-profile-card {
+  display: flex;
+  flex-direction: column;
+  width: 290px;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+  overflow: hidden;
+}
+.mk-profile-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 54px;
+  padding: 14px;
+  background: var(--mk-bg-raised);
+}
+.mk-profile-card.is-active .mk-profile-card__header { background: var(--mk-profile-active-header); }
+.mk-profile-card__slot { color: var(--mk-text-2); font: 400 16px/19px var(--mk-font); white-space: nowrap; }
+.mk-profile-card__factory { color: var(--mk-text-2); font: 500 12px/15px var(--mk-font); white-space: nowrap; }
+.mk-profile-card__body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 15px;
+}
+.mk-profile-card__name-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mk-profile-card__name {
+  margin: 0;
+  min-width: 0;
+  color: var(--mk-text);
+  font: 600 22px/27px var(--mk-font);
+  letter-spacing: -0.1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-profile-card__rename {
+  flex: none;
+  display: flex;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0.3;
+  transition: opacity 120ms ease;
+}
+.mk-profile-card__rename > svg { display: block; }
+button.mk-profile-card__rename:hover, button.mk-profile-card__rename:focus-visible { opacity: 1; }
+.mk-profile-card__summary { display: flex; flex-direction: column; gap: 15px; margin: 0; }
+.mk-profile-stat { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mk-profile-stat__label, .mk-profile-stat__value { margin: 0; font: 400 14px/17px var(--mk-font); white-space: nowrap; }
+.mk-profile-stat__label { color: var(--mk-text-2); }
+.mk-profile-stat__value { color: var(--mk-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Footer sits at the card bottom when cards in a row are stretched to equal height. */
+.mk-profile-card__footer { display: flex; gap: 5px; margin-top: auto; }
+.mk .mk-profile-card__action { flex: 1 1 0; height: 45px; }
+.mk .mk-profile-card__reset { width: 45px; height: 45px; }
+
+/* ───────── Profile row ───────── */
+
+.mk-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 59px;
+  padding: 11px 10px 11px 15px;
+  border-radius: var(--mk-r-row);
+  background: var(--mk-bg-card);
+}
+.mk-profile-row.is-renaming { min-height: 62px; }
+.mk-profile-row__slot { flex: none; color: var(--mk-text-2); font: 500 14px/16.9px var(--mk-font); white-space: nowrap; }
+.mk-profile-row__text { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mk-profile-row__name, .mk-profile-row__summary {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-profile-row__name { color: var(--mk-text); font: 500 14px/16.9px var(--mk-font); }
+.mk-profile-row__name.is-empty { color: var(--mk-text-muted); }
+.mk-profile-row__summary { color: var(--mk-text-2); font: 400 14px/16.9px var(--mk-font); }
+.mk-profile-row__actions { flex: none; display: flex; align-items: center; gap: 5px; }
+.mk-profile-row__rename { flex: none; width: 300px; }
+
+/* ───────── Profile list ───────── */
+
+.mk-profile-list { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+
+/* ───────── DPI stage row ───────── */
+
+.mk-dpi-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 41px;
+  padding: 6px 10px;
+  border-radius: var(--mk-r-row);
+  transition: background-color 120ms ease;
+}
+.mk-dpi-row.is-active { background: var(--mk-accent-tint); }
+.mk-dpi-row__index {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mk-r-segment);
+  background: var(--mk-bg-control);
+  font: 500 12px/14.5px var(--mk-font);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.mk .mk-dpi-row:not(.is-active) button.mk-dpi-row__index:hover { background: var(--mk-bg-control-hover); color: var(--mk-text); }
+.mk .mk-dpi-row.is-active .mk-dpi-row__index { background: var(--mk-accent-surface); color: var(--mk-accent); cursor: default; }
+.mk-dpi-row__value {
+  flex: none;
+  width: 80px;
+  height: 29px;
+  margin: 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+  color: var(--mk-text);
+  font: 500 14px/16.9px var(--mk-font);
+  text-align: center;
+  font-variant-numeric: normal;
+  caret-color: var(--mk-accent);
+  outline: none;
+  cursor: text;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+.mk-dpi-row__value.is-muted { color: var(--mk-text-3); }
+.mk-dpi-row__value[readonly] { cursor: default; }
+.mk .mk-dpi-row__value:focus-visible { outline: none; }
+.mk-dpi-row__value:not([readonly]):focus { background: var(--mk-bg-card); box-shadow: inset 0 0 0 1px var(--mk-accent-border); }
+.mk-dpi-row__value:not([readonly]):hover:not(:focus) { background: var(--mk-bg-control); }
+.mk-dpi-row__link {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0.6;
+  transition: opacity 120ms ease;
+}
+.mk-dpi-row__link > svg { display: block; flex: none; }
+/* Icon/link is drawn horizontal; the library shows it rotated upright between X and Y. */
+.mk-dpi-row__link.is-linked > svg { transform: rotate(90deg); }
+button.mk-dpi-row__link:hover { opacity: 1; }
+.mk-dpi-row__lift { flex: none; width: 120px; display: flex; }
+.mk-dpi-row__lift > .mk-segmented { height: 29px; }
+.mk-dpi-row__color {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  border-radius: var(--mk-r-pill);
+  box-shadow: inset 0 0 0 1px var(--mk-border);
+  transition: box-shadow 120ms ease;
+}
+label.mk-dpi-row__color { cursor: pointer; }
+label.mk-dpi-row__color:hover { box-shadow: inset 0 0 0 1px var(--mk-text-3); }
+label.mk-dpi-row__color:focus-within { outline: 2px solid var(--mk-accent-border); outline-offset: 2px; }
+.mk-dpi-row__swatch { display: block; width: 17px; height: 17px; border-radius: 50%; }
+.mk-dpi-row__spacer { flex: 1 1 0; min-width: 0; }
+.mk-dpi-row__remove {
+  flex: none;
+  display: flex;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0.4;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+.mk-dpi-row__remove > svg { display: block; }
+.mk-dpi-row__remove:hover:not(:disabled) { opacity: 1; }
+.mk .mk-dpi-row__remove:disabled { opacity: 0.15; cursor: default; }
+
+/* ───────── DPI stage table ───────── */
+
+.mk-dpi-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+}
+.mk-dpi-table__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding-left: 10px;
+}
+.mk-dpi-table__title { margin: 0; color: var(--mk-text); font: 500 16px/19.4px var(--mk-font); white-space: nowrap; }
+.mk-dpi-table__count { display: flex; align-items: center; gap: 10px; }
+.mk-dpi-table__count-label { color: var(--mk-text-muted); font: 400 12px/14.5px var(--mk-font); white-space: nowrap; }
+.mk-dpi-table__steps { flex: none; display: flex; }
+.mk-dpi-table__steps > .mk-steps { height: 29px; }
+.mk-dpi-table__steps .mk-step { height: 29px; }
+.mk-dpi-table__columns { display: flex; align-items: center; gap: 10px; padding: 0 10px; }
+.mk-dpi-table__col {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  color: var(--mk-text-muted);
+  font: 500 12px/15px var(--mk-font);
+  white-space: nowrap;
+}
+.mk-dpi-table__col.is-index { width: 24px; }
+.mk-dpi-table__col.is-value { width: 80px; }
+.mk-dpi-table__col.is-link { width: 18px; }
+.mk-dpi-table__col.is-lift { width: 120px; }
+.mk-dpi-table__col.is-color { width: 29px; }
+.mk-dpi-table__rows { display: flex; flex-direction: column; gap: 8px; }
+.mk .mk-dpi-table__reset { width: 100%; }

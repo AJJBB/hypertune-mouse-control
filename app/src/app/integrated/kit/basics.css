@@ -1,0 +1,265 @@
+/* Mouse Component System — basics group styles (scoped under .mk).
+   Geometry from scratch-figma/specs: button, icon-button, status-pill,
+   tab-bar, tab, device-header, header-actions. Tokens only. */
+
+/* ─────────────── Button ─────────────── */
+.mk .mk-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: 0;
+  white-space: nowrap;
+  background: var(--mk-bg-control);
+  color: var(--mk-text);
+  transition: background-color .12s ease;
+}
+.mk .mk-button__icon { flex: 0 0 auto; display: block; }
+.mk .mk-button__label { display: block; }
+
+/* Size=Large — 45 high, pad 0/25, gap 10, r9, Mouse/Button 16 */
+.mk .mk-button--large {
+  height: 45px;
+  padding: 0 25px;
+  gap: 10px;
+  border-radius: 9px;
+  font: 400 16px/19.4px var(--mk-font);
+  letter-spacing: 0;
+}
+/* Size=Medium — 35 high, pad 0/15, gap 8, r8, Mouse/Body 14 */
+.mk .mk-button--medium {
+  height: 35px;
+  padding: 0 15px;
+  gap: 8px;
+  border-radius: 8px;
+  font: 400 14px/16.9px var(--mk-font);
+  letter-spacing: 0;
+}
+
+/* Style */
+.mk .mk-button--neutral { background: var(--mk-bg-control); color: var(--mk-text); }
+.mk .mk-button--primary { background: var(--mk-accent-surface); color: var(--mk-text); }
+.mk .mk-button--danger  { background: var(--mk-bg-control); color: var(--mk-danger); }
+
+/* State=Hover (.is-hover forces it for the showcase) */
+.mk .mk-button--neutral:not(:disabled):hover, .mk .mk-button--neutral.is-hover,
+.mk .mk-button--danger:not(:disabled):hover,  .mk .mk-button--danger.is-hover {
+  background: var(--mk-bg-control-hover);
+}
+.mk .mk-button--primary:not(:disabled):hover, .mk .mk-button--primary.is-hover {
+  background: var(--mk-primary-hover);
+}
+/* State=Disabled */
+.mk .mk-button:disabled, .mk .mk-button.is-disabled { opacity: .4; cursor: default; }
+
+/* ─────────────── Icon button ─────────────── */
+.mk .mk-icon-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--mk-bg-control);
+  color: var(--mk-text);
+  transition: background-color .12s ease, color .12s ease;
+}
+.mk .mk-icon-button > svg { display: block; flex: 0 0 auto; }
+/* State=Hover */
+.mk .mk-icon-button:not(:disabled):hover, .mk .mk-icon-button.is-hover { background: var(--mk-bg-control-hover); }
+/* State=Danger — a destructive button on hover / keyboard focus (.is-danger-state forces it) */
+.mk .mk-icon-button.is-danger:not(:disabled):hover,
+.mk .mk-icon-button.is-danger:not(:disabled):focus-visible,
+.mk .mk-icon-button.is-danger-state {
+  background: var(--mk-bg-control-hover);
+  color: var(--mk-danger);
+}
+/* In the library the Danger icon keeps its white fill and gains a 1px
+   status/danger stroke; stroked icons simply turn red. */
+.mk .mk-icon-button.is-danger:not(:disabled):hover svg [fill="currentColor"],
+.mk .mk-icon-button.is-danger:not(:disabled):focus-visible svg [fill="currentColor"],
+.mk .mk-icon-button.is-danger-state svg [fill="currentColor"] {
+  fill: var(--mk-text);
+  stroke: var(--mk-danger);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+/* State=Disabled */
+.mk .mk-icon-button:disabled, .mk .mk-icon-button.is-disabled { opacity: .4; cursor: default; }
+
+/* ─────────────── Status pill ─────────────── */
+.mk .mk-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 4px 12px 4px 8px;
+  gap: 7px;
+  border-radius: var(--mk-r-pill);
+  background: var(--mk-bg-pill);
+  color: var(--mk-text);
+  font: 400 12px/14.5px var(--mk-font);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.mk .mk-pill--active  { color: var(--mk-accent); }
+.mk .mk-pill--warning { color: var(--mk-warning); }
+.mk .mk-pill--error   { color: var(--mk-danger); }
+.mk .mk-pill--neutral,
+.mk .mk-pill--plain   { color: var(--mk-text); }
+/* Type=Neutral (icon lead): gap 6 */
+.mk .mk-pill.has-icon { gap: 6px; }
+/* Type=Plain (no lead): pad 4/12/4/12 */
+.mk .mk-pill--bare { padding: 4px 12px; gap: 6px; }
+
+/* Dot: 11×11, accent/status fill, 2px inside stroke bg/card */
+.mk .mk-pill__dot {
+  display: block;
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: inset 0 0 0 2px var(--mk-bg-card);
+}
+.mk .mk-pill__icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--mk-text);
+}
+.mk .mk-pill__icon > svg { display: block; width: 18px; height: 18px; }
+.mk .mk-pill__label { display: block; }
+.mk .mk-pill__unit { color: var(--mk-text-3); }
+
+/* ─────────────── Tab bar + Tab ─────────────── */
+.mk .mk-tabbar {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 45px;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 8px;
+  background: var(--mk-bg-card);
+}
+.mk .mk-tab {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  height: 41px;
+  margin: 0;
+  padding: 0 25px;
+  border: 0;
+  border-radius: var(--mk-r-tab);
+  background: var(--mk-bg-page);
+  color: var(--mk-text-muted);
+  font: 400 14px/16.9px var(--mk-font);
+  letter-spacing: 0;
+  white-space: nowrap;
+  transition: background-color .12s ease, color .12s ease;
+}
+.mk .mk-tab__label { display: block; overflow: hidden; text-overflow: ellipsis; }
+/* State=Hover */
+.mk .mk-tab:not(:disabled):not(.is-selected):hover, .mk .mk-tab.is-hover {
+  background: var(--mk-bg-raised);
+  color: var(--mk-text);
+}
+/* State=Selected */
+.mk .mk-tab.is-selected { background: var(--mk-accent-surface); color: var(--mk-accent); cursor: default; }
+/* State=Disabled */
+.mk .mk-tab:disabled, .mk .mk-tab.is-disabled { opacity: .4; cursor: default; }
+.mk .mk-tab:focus-visible { outline-offset: -2px; }
+
+/* ─────────────── Header actions ─────────────── */
+.mk .mk-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ─────────────── Device header ─────────────── */
+.mk .mk-device-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 39px; /* 39 on screens without actions; Large action buttons make it 45 */
+  padding: 0 0 0 10px;
+  gap: 25px;
+}
+.mk .mk-device-header.has-back { padding-left: 0; }
+.mk .mk-device-header__lead {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+.mk .mk-device-header__name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.mk .mk-device-header__brand {
+  display: block;
+  color: var(--mk-text-3);
+  font: 500 12px/14.5px var(--mk-font);
+  letter-spacing: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk .mk-device-header__model {
+  margin: 0;
+  color: var(--mk-text);
+  font: 600 18px/21.8px var(--mk-font);
+  letter-spacing: -0.1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk .mk-device-header__spacer { flex: 1 1 0; min-width: 0; }
+.mk .mk-device-header__status {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+.mk .mk-device-header__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+/* Back chevron (not in the library; compact control-style square, tokens only) */
+.mk .mk-device-header__back {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-control);
+  color: var(--mk-text);
+  transition: background-color .12s ease;
+}
+.mk .mk-device-header__back > svg { display: block; transform: rotate(180deg); }
+.mk .mk-device-header__back:hover, .mk .mk-device-header__back.is-hover { background: var(--mk-bg-control-hover); }

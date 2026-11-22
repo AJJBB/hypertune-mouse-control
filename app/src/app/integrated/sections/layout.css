@@ -1,0 +1,110 @@
+/* Integrated device page anatomy (see layout.tsx). Scoped under .mk. */
+
+.mk .mk-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: var(--mk-col-gap);
+}
+.mk .mk-split__left {
+  flex: 0 1 var(--mk-col-left);
+  min-width: 320px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mk .mk-split__right {
+  flex: 0 1 var(--mk-col-right);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+/* Rows never shrink inside a scroll column — overflow scrolls instead (spec). */
+.mk .mk-split__right > *, .mk .mk-full--scroll > * { flex-shrink: 0; }
+.mk .mk-split--overview { gap: 10px; }
+.mk .mk-split--overview .mk-split__right { flex-basis: 680px; }
+
+.mk .mk-full {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mk .mk-full--scroll { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+
+/* Scroll areas: the designs show no scrollbar chrome — keep it slim and quiet. */
+.mk [data-scroll="y"] { scrollbar-width: thin; scrollbar-color: var(--mk-bg-control) transparent; }
+.mk [data-scroll="y"]::-webkit-scrollbar { width: 6px; }
+.mk [data-scroll="y"]::-webkit-scrollbar-thumb { background: var(--mk-bg-control); border-radius: 3px; }
+.mk [data-scroll="y"]::-webkit-scrollbar-track { background: transparent; }
+
+.mk .mk-stack { display: flex; flex-direction: column; }
+.mk .mk-stack--5 { gap: 5px; }
+.mk .mk-stack--10 { gap: 10px; }
+.mk .mk-stack--20 { gap: 20px; }
+
+/* Product render column */
+.mk .mk-render {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--mk-r-card);
+  overflow: hidden;
+}
+.mk .mk-render__stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Dot-grid texture with a centre fade + a faint accent glow (Figma "Dots" master,
+   accent ellipse at 5% blurred 103) — both sit behind the render. */
+.mk .mk-render--dots .mk-render__stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--mk-border) 0.85px, transparent 1.3px);
+  background-size: 7px 7px;
+  -webkit-mask-image: radial-gradient(ellipse 62% 58% at 50% 46%, #000 25%, transparent 78%);
+          mask-image: radial-gradient(ellipse 62% 58% at 50% 46%, #000 25%, transparent 78%);
+  pointer-events: none;
+}
+.mk .mk-render--dots .mk-render__stage::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: 80%;
+  height: 26%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--mk-accent) 9%, transparent), transparent 70%);
+  filter: blur(28px);
+  pointer-events: none;
+}
+.mk .mk-render__img {
+  position: relative;
+  z-index: 1;
+  max-width: 88%;
+  max-height: 92%;
+  object-fit: contain;
+  user-select: none;
+  /* Figma: five stacked soft shadows in bg/page — keep the three that read. */
+  filter:
+    drop-shadow(0 6px 15px color-mix(in srgb, var(--mk-bg-page) 54%, transparent))
+    drop-shadow(0 24px 28px color-mix(in srgb, var(--mk-bg-page) 47%, transparent))
+    drop-shadow(0 55px 38px color-mix(in srgb, var(--mk-bg-page) 27%, transparent));
+}
+.mk .mk-render__footer { position: relative; z-index: 2; flex: 0 0 auto; }
+
+.mk .mk-empty-note { margin: 0; padding: 20px 15px; }

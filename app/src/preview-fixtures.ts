@@ -1,6 +1,7 @@
 import type { MouseLighting, MouseStatus } from "@openmouse/protocol/drivers/mouse-types";
 import type { LogitechReprogrammableControl } from "@openmouse/protocol/logitech";
 import { PREVIEW_KEYS, type FixturePreviewMode } from "./preview-modes";
+import type { DeviceCapabilities } from "./device/types";
 
 export { PREVIEW_KEYS };
 
@@ -25,6 +26,13 @@ export interface PreviewFixture {
    * exercise the v2 Buttons screen in preview.
    */
   buttons?: LogitechReprogrammableControl[];
+  /**
+   * Driver capabilities the real client would publish (option lists, writable
+   * flags). Preview has no live client, so a fixture that exercises a
+   * capability-gated card (Razer sleep / low-power warning) carries them here;
+   * they're merged over what readCapabilities() derives.
+   */
+  capabilities?: Partial<DeviceCapabilities>;
 }
 
 /** Builds one MX-style reprogrammable control; most firmware fields are
@@ -382,6 +390,8 @@ const RAZER: MouseStatus = {
     hideProcessingCard: true,
     forceShowBattery: true,
     defaultDisplayName: "Viper V3 Pro",
+    // The driver turns this on whenever sleep or button mappings read.
+    showAdvancedSection: true,
   },
   batteryPercent: 66,
   batteryState: "Discharging",
@@ -404,6 +414,8 @@ const RAZER: MouseStatus = {
     scrollDown: "Disabled",
     sensitivityButton: "Cycle Up Sensitivity Stages",
   },
+  sleepTimeout: 300,
+  lowBatteryWarning: 15,
   firmware: ["1.01.00"],
 };
 
@@ -821,6 +833,75 @@ const LOGITECH_MX_MASTER_3S: MouseStatus = {
  * Keyed by the `?preview=` value. `superstrike` and `slots` are handled
  * separately because they drive panels beyond a plain status.
  */
+
+/** VXE R1 SE+ on the ATK driver: the R1 path reads the stored configuration —
+    four onboard banks, the onboard button table and the receiver telemetry
+    (see AtkHidClient.readR1StoredConfiguration / readR1ReceiverStatus). */
+const VXE_R1: MouseStatus = {
+  brand: "VXE",
+  name: "R1 SE+",
+  ui: { family: "atk", hideUnsupportedPollingRates: true, forceShowBattery: true },
+  batteryPercent: 81,
+  batteryState: "Discharging",
+  dpi: 800,
+  dpiY: 800,
+  supportsSeparateDpiAxes: false,
+  pollingRateHz: 1000,
+  supportedPollingRates: [125, 250, 500, 1000, 2000, 4000],
+  activeProfile: 3,
+  atkProfileCount: 4,
+  atkButtonMappings: [
+    { id: "left", name: "Left", address: 0x60, keyClass: 0x01, value1: 0x01, value2: 0x00, checksumValid: true, action: "Left click", raw: "01 01 00" },
+    { id: "right", name: "Right", address: 0x64, keyClass: 0x01, value1: 0x02, value2: 0x00, checksumValid: true, action: "Right click", raw: "01 02 00" },
+    { id: "middle", name: "Middle", address: 0x68, keyClass: 0x01, value1: 0x04, value2: 0x00, checksumValid: true, action: "Middle click", raw: "01 04 00" },
+    { id: "back", name: "Back", address: 0x6c, keyClass: 0x01, value1: 0x08, value2: 0x00, checksumValid: true, action: "Back", raw: "01 08 00" },
+    { id: "forward", name: "Forward", address: 0x70, keyClass: 0x01, value1: 0x10, value2: 0x00, checksumValid: true, action: "Forward", raw: "01 10 00" },
+    { id: "bottom", name: "Bottom", address: 0x74, keyClass: 0x07, value1: 0x01, value2: 0x00, checksumValid: true, action: "Profile control (0x01, 0x00)", raw: "07 01 00" },
+  ],
+  atkReceiver: { online: true, status: 1, rfId: "3F-A2-91-0C", pairingStatus: null, pairingSecondsRemaining: null },
+  liftOffDistance: "Low",
+  connectionType: "Wireless",
+  connectionDetail: "VXE R1 SE+ receiver",
+  motionSync: false,
+  debounceMs: 4,
+  sleepTimeout: 60,
+  firmware: ["1.1.2", "Receiver 0.9.4"],
+};
+
+/** Incott on its own vendor protocol: six DPI stages, the receiver LED and
+    rapid-fire key over wireless, and the HP / Corded / LP power modes. */
+const INCOTT: MouseStatus = {
+  brand: "Incott",
+  name: "G23V2 Pro",
+  ui: {
+    showAdvancedSection: true,
+    hideUnsupportedPollingRates: true,
+    dpiStageEditor: { maxStages: 6, countEditable: true, minDpi: 50, maxDpi: 45000, stepDpi: 50 },
+  },
+  batteryPercent: 64,
+  batteryState: "Discharging",
+  dpi: 1600,
+  dpiStages: [400, 800, 1600, 3200, 6400, 12800],
+  activeDpiStage: 2,
+  pollingRateHz: 4000,
+  supportedPollingRates: [125, 250, 500, 1000, 2000, 4000, 8000],
+  activeProfile: null,
+  connectionType: "Wireless",
+  liftOffDistance: "Medium",
+  supportedLiftOffDistances: ["Low", "Medium", "High"],
+  incottReceiverLedMode: 1,
+  incottFireKeyTimes: 3,
+  incottFireKeyIntervalMs: 40,
+  motionSync: true,
+  rippleControl: false,
+  angleSnapping: false,
+  debounceMs: 2,
+  sleepTimeout: 120,
+  powerMode: "HP",
+  powerModes: ["HP", "Corded", "LP"],
+  firmware: ["Identity 23 02 01"],
+};
+
 export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   pulsar: { label: "Pulsar X2 V2", status: PULSAR },
   "pulsar-pro": { label: "Pulsar X2 V2 Pro", status: PULSAR_PRO },
@@ -834,7 +915,15 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   m3k: { label: "Zaunkoenig M3K", status: M3K },
   atk: { label: "ATK A9 Ultra", status: ATK },
   orbital: { label: "Orbital One", status: ORBITAL },
-  razer: { label: "Razer Viper V3 Pro", status: RAZER },
+  razer: {
+    label: "Razer Viper V3 Pro",
+    status: RAZER,
+    capabilities: {
+      razerSleepOptions: Array.from({ length: 15 }, (_, i) => (i + 1) * 60),
+      razerLowPowerOptions: Array.from({ length: 20 }, (_, i) => 5 + i * 5),
+      lowPowerPollingCeiling: 1000,
+    },
+  },
   "razer-viper-v2": { label: "Razer Viper V2 Pro", status: RAZER_VIPER_V2 },
   "razer-viper-mini": { label: "Razer Viper Mini", status: RAZER_VIPER_MINI },
   "razer-cobra": { label: "Razer Cobra", status: RAZER_COBRA },
@@ -847,4 +936,11 @@ export const PREVIEW_FIXTURES: Record<FixturePreviewMode, PreviewFixture> = {
   "mx-master-3s": { label: "Logitech MX Master 3S", status: LOGITECH_MX_MASTER_3S, buttons: MX_MASTER_3S_BUTTONS },
   g703: { label: "Logitech G703", status: LOGITECH_G703 },
   "logitech-legacy": { label: "Logitech G402 (legacy DPI)", status: LOGITECH_LEGACY },
+  "vxe-r1": { label: "VXE R1 SE+ (ATK)", status: VXE_R1 },
+  incott: {
+    label: "Incott G23V2 Pro",
+    status: INCOTT,
+    // Incott publishes its own sleep list (seconds); the fixture's 120 s must be on it.
+    capabilities: { sleepOptions: [30, 60, 120, 300, 600, 900] },
+  },
 };

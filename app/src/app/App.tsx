@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import * as control from "../device/controller";
 import { interfaceThemeSlug } from "../interface-preferences";
 import { ArtworkRequestDialog } from "./ArtworkRequestDialog";
@@ -11,9 +11,27 @@ import { ToastHost } from "./Toasts";
 import { useControl } from "./useControl";
 import { isIntegratedMode } from "../app-mode";
 import { DeviceGrid } from "./integrated/DeviceGrid";
-import { DeviceDetail } from "./integrated/DeviceDetail";
-import { ConnectNoticeDialog } from "./integrated/ConnectNoticeDialog";
+import { DeviceDetail } from "./integrated/DeviceDetailV2";
+import { ConnectNoticeDialog, type NoticeVariant } from "./integrated/ConnectNoticeDialog";
 import { ToolsHub } from "./integrated/ToolsHub";
+
+// Dev-only component gallery for the Mouse Component System (?app=1&kit=<group>).
+const KitShowcase = import.meta.env.DEV
+  ? lazy(() => import("./integrated/kit/Showcase").then((m) => ({ default: m.KitShowcase })))
+  : null;
+function kitGroupParam(): string | null {
+  if (!import.meta.env.DEV) return null;
+  try { return new URLSearchParams(window.location.search).get("kit"); } catch { return null; }
+}
+// Dev-only: ?popup=<variant> opens a connection popup so each one can be
+// screenshotted against its Figma reference without real hardware.
+function devPopupParam(): NoticeVariant | null {
+  if (!import.meta.env.DEV) return null;
+  try {
+    const v = new URLSearchParams(window.location.search).get("popup");
+    return v === "connecting" || v === "error" || v === "conflict" || v === "razer-web" ? (v as NoticeVariant) : null;
+  } catch { return null; }
+}
 
 /** This renders as a single embeddable panel — a "Mouse" tab's worth of
     content, sections included — not a standalone app shell. It brings no
@@ -41,6 +59,12 @@ export function App(): ReactNode {
     }
   }, [locale]);
 
+  const kitGroup = kitGroupParam();
+  const devPopup = devPopupParam();
+  if (isIntegratedMode() && kitGroup && KitShowcase) {
+    return <Suspense fallback={null}><KitShowcase group={kitGroup} /></Suspense>;
+  }
+
   function openArtworkRequest(): void {
     if (snapshot.status?.name) setArtworkDeviceName(snapshot.status.name);
     setArtworkReqOpen(true);
@@ -59,11 +83,11 @@ export function App(): ReactNode {
   // native app draws the window, sidebar and "Tools / Mouse Control" breadcrumb.
   if (isIntegratedMode()) {
     return (
-      <div className={`htv2-root${preferences.reducedMotion ? " reduce-interface-motion" : ""}`} data-interface-theme={interfaceThemeSlug(preferences.theme)}>
+      <div className={`htv2-root mk${preferences.reducedMotion ? " reduce-interface-motion" : ""}`} data-interface-theme={interfaceThemeSlug(preferences.theme)}>
         {showHub ? (
           <div className="htv2-content"><ToolsHub snapshot={snapshot} onOpenMouse={() => setShowHub(false)} /></div>
         ) : snapshot.deviceView === "device" && snapshot.status !== null ? (
-          <div className="htv2-content"><DeviceDetail snapshot={snapshot} onShareProfile={() => setShareProfileOpen(true)} /></div>
+          <DeviceDetail snapshot={snapshot} onShareProfile={() => setShareProfileOpen(true)} />
         ) : (
           <div className="htv2-content"><DeviceGrid snapshot={snapshot} /></div>
         )}
@@ -79,6 +103,7 @@ export function App(): ReactNode {
           onClose={() => control.closeConnectError()}
           onRetry={() => { control.closeConnectError(); void control.connect(); }}
         />
+        {devPopup ? <ConnectNoticeDialog variant={devPopup} open onClose={() => undefined} onRetry={() => undefined} /> : null}
         {dialogs}
       </div>
     );

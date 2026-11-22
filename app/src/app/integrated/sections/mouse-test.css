@@ -1,0 +1,300 @@
+/* Mouse test tab (Figma "Mouse - Mouse Test" / "- Active"). Scoped under .mk.
+   Geometry from the reference screens (content frame 1190 wide):
+     rig      — cable rig 350 high: case 843×350 (hump 34 + body 316, r22),
+                screen 780×254 (r15, 7px bezel) 31 inside the body, cable 50
+                high through the screen's centre line, plugs 30×67;
+     tester   — kit Button tester at 758 wide: 285 | 188 (render) | 285. */
+
+.mk .mk-mt {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ───────────── Rig ───────────── */
+.mk .mk-mt__rig {
+  position: relative;
+  flex: none;
+  width: 100%;
+  height: 350px;
+  /* The reference header is 6 shorter on this tab (no header actions), so its
+     rig starts 7 higher; reclaim it from the header gap. */
+  margin-top: -7px;
+}
+.mk .mk-mt__cable {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 167px;
+  height: 50px;
+  background:
+    linear-gradient(180deg, var(--mk-bg-control-hover) 0%, var(--mk-bg-control) 30%, var(--mk-bg-card) 100%) top / 100% 25px no-repeat,
+    linear-gradient(180deg, var(--mk-bg-control-hover) 0%, var(--mk-bg-control) 30%, var(--mk-bg-card) 100%) bottom / 100% 25px no-repeat;
+  box-shadow: 0 13px 55px color-mix(in srgb, var(--mk-bg-track) 56%, transparent);
+}
+.mk .mk-mt__plug {
+  position: absolute;
+  z-index: 2;
+  top: 158.5px;
+  width: 30px;
+  height: 67px;
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--mk-text) 16%, var(--mk-bg-control)) 0, var(--mk-bg-control-hover) 6px, var(--mk-bg-control) 40%, var(--mk-bg-card) 100%);
+  box-shadow:
+    inset 1px 0 0 var(--mk-fill-subtle),
+    inset -1px 0 0 var(--mk-fill-subtle),
+    0 2px 8px color-mix(in srgb, var(--mk-bg-track) 35%, transparent),
+    0 8px 28px color-mix(in srgb, var(--mk-bg-track) 30%, transparent);
+}
+.mk .mk-mt__plug--l { left: calc(50% - 440.5px); }
+.mk .mk-mt__plug--r { left: calc(50% + 412.5px); }
+
+/* Case: bg/card shape (drawn by .mk-mt__hump + .mk-mt__body) with a faint
+   accent edge that peaks at the centre and a soft green glow under the hump. */
+.mk .mk-mt__case {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 50%;
+  width: 843px;
+  height: 350px;
+  margin-left: -421.5px;
+}
+/* Case shape (hump + body) is an SVG: bg/card fill, a soft accent glow under
+   the tab, a hairline rim and an accent edge that peaks in the middle (Figma
+   stroke grad #13f287 0 % → 20 % → 0 %). */
+.mk .mk-mt__shell { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.mk .mk-mt__shell-fill { fill: var(--mk-bg-card); }
+.mk .mk-mt__glow-0 { stop-color: var(--mk-accent); stop-opacity: 0.07; }
+.mk .mk-mt__glow-1 { stop-color: var(--mk-accent); stop-opacity: 0; }
+.mk .mk-mt__shell-rim { fill: none; stroke: var(--mk-fill-subtle); stroke-width: 1; }
+.mk .mk-mt__shell-edge { fill: none; stroke-width: 1; clip-path: inset(0 0 78% 0); }
+.mk .mk-mt__edge-0 { stop-color: var(--mk-accent); stop-opacity: 0; }
+.mk .mk-mt__edge-1 { stop-color: var(--mk-accent); stop-opacity: 0.4; }
+.mk .mk-mt__grille {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: 211px;
+  height: 13px;
+  margin-left: -105.5px;
+  background: repeating-linear-gradient(90deg, var(--mk-fill-subtle) 0 2px, transparent 2px 4.8px);
+}
+.mk .mk-mt__body {
+  position: absolute;
+  top: 34px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Screen: 780×254, r15, 7px bezel (grad #222 → #0f0f0f), deep drop shadow. */
+.mk .mk-mt__screen {
+  position: absolute;
+  top: 31px;
+  left: 50%;
+  width: 780px;
+  height: 254px;
+  margin-left: -390px;
+  border-radius: 15px;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(var(--mk-bg-track), var(--mk-bg-track)), var(--mk-bg-track);
+  box-shadow:
+    0 0 0 7px color-mix(in srgb, var(--mk-text) 9%, var(--mk-bg-track)),
+    0 20px 43px color-mix(in srgb, var(--mk-bg-track) 44%, transparent),
+    0 78px 78px color-mix(in srgb, var(--mk-bg-track) 30%, transparent);
+}
+/* Dot texture (Figma "Dots" master, 8 px) under a soft centre ellipse. */
+.mk .mk-mt__dots {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(circle, var(--mk-border) 0.9px, transparent 1.4px);
+  background-size: 8px 8px;
+  background-position: 4px 3px;
+  -webkit-mask-image: radial-gradient(ellipse 36% 34% at 50% 50%, var(--mk-text) 30%, transparent 100%);
+          mask-image: radial-gradient(ellipse 36% 34% at 50% 50%, var(--mk-text) 30%, transparent 100%);
+  pointer-events: none;
+}
+/* The screen is a touch lighter toward the right (glass sheen). */
+.mk .mk-mt__sheen {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 22%, color-mix(in srgb, var(--mk-text) 2%, transparent) 40%, color-mix(in srgb, var(--mk-text) 2.5%, transparent) 100%);
+  pointer-events: none;
+}
+/* Idle: green haze rising from the ambient line. */
+.mk .mk-mt__haze {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 50%;
+  z-index: -1;
+  background: radial-gradient(ellipse 55% 140% at 50% 100%, color-mix(in srgb, var(--mk-accent) 11%, transparent), transparent 85%);
+  pointer-events: none;
+}
+.mk .mk-mt__ambient {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.mk .mk-mt__ambient-line { fill: none; stroke-width: 1; }
+.mk .mk-mt__ambient-glow { fill: none; stroke-width: 4; opacity: 0.4; filter: blur(6px); }
+.mk .mk-mt__stop-0 { stop-color: var(--mk-accent); stop-opacity: 0; }
+.mk .mk-mt__stop-1 { stop-color: var(--mk-accent); stop-opacity: 1; }
+.mk .mk-mt__stop-mid { stop-color: var(--mk-accent); stop-opacity: 0.5; }
+
+/* Start: 302×57 dark well (pad 3, r12) holding a 296×51 accent button (r10). */
+.mk .mk-mt__start-well {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 302px;
+  height: 57px;
+  margin: -28.5px 0 0 -151px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--mk-bg-track);
+  box-shadow: 0 0 0 0.5px var(--mk-fill-subtle);
+}
+.mk .mk-mt__start.mk-button {
+  width: 100%;
+  height: 51px;
+  border-radius: 10px;
+  border: 0.7px solid transparent;
+  background:
+    radial-gradient(ellipse 60% 120% at 50% -10%, color-mix(in srgb, var(--mk-accent) 50%, transparent), transparent 75%) padding-box,
+    linear-gradient(color-mix(in srgb, var(--mk-accent) 12%, var(--mk-bg-page)), color-mix(in srgb, var(--mk-accent) 12%, var(--mk-bg-page))) padding-box,
+    linear-gradient(180deg, var(--mk-accent), color-mix(in srgb, var(--mk-accent) 15%, transparent)) border-box;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--mk-accent) 25%, transparent);
+  color: var(--mk-text);
+}
+.mk .mk-mt__start.mk-button:hover {
+  background:
+    radial-gradient(ellipse 60% 120% at 50% -10%, color-mix(in srgb, var(--mk-accent) 62%, transparent), transparent 75%) padding-box,
+    linear-gradient(color-mix(in srgb, var(--mk-accent) 14%, var(--mk-bg-page)), color-mix(in srgb, var(--mk-accent) 14%, var(--mk-bg-page))) padding-box,
+    linear-gradient(180deg, var(--mk-accent), color-mix(in srgb, var(--mk-accent) 15%, transparent)) border-box;
+}
+.mk .mk-mt__start .mk-button__label { font: 400 18px/21.8px var(--mk-font); }
+
+/* Active: big live reading (Display 64, accent) + "Hz" (Semi Bold 32, dim). */
+.mk .mk-mt__reading {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  height: 64px;
+}
+.mk .mk-mt__hz { color: var(--mk-accent); }
+.mk .mk-mt__hz-unit {
+  font: 600 32px/32px var(--mk-font);
+  color: color-mix(in srgb, var(--mk-text) 10%, var(--mk-bg-track));
+  padding-top: 4px;
+}
+/* Live waveform: bottom 115 of the screen, accent line + 22 % → 0 fill. */
+.mk .mk-mt__trace {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 115px;
+  pointer-events: none;
+}
+.mk .mk-mt__trace.is-frozen { opacity: 0.35; }
+.mk .mk-mt__trace-line { fill: none; stroke: var(--mk-accent); stroke-width: 1.9; stroke-linejoin: round; }
+.mk .mk-mt__fill-top { stop-color: var(--mk-accent); stop-opacity: 0.22; }
+.mk .mk-mt__fill-bottom { stop-color: var(--mk-accent); stop-opacity: 0; }
+
+/* Done: the results grid (8 Stat tiles, 4 × 2) fills the screen. */
+.mk .mk-mt__results {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-content: center;
+  gap: 10px;
+  padding: 0 24px;
+}
+.mk .mk-mt__results .mk-stat {
+  background: color-mix(in srgb, var(--mk-bg-raised) 88%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+          backdrop-filter: blur(6px);
+}
+.mk .mk-mt__tone--is-good .mk-stat__value { color: var(--mk-accent); }
+.mk .mk-mt__tone--is-mid .mk-stat__value { color: var(--mk-warning); }
+.mk .mk-mt__tone--is-poor .mk-stat__value { color: var(--mk-danger); }
+
+/* ───────────── Screen status strip + test length ───────────── */
+/* Top of the screen: guidance (+ progress / sample count) and Cancel / Run
+   again. Test length sits under Start. Neither is on the reference — the
+   polling tester is awaiting Ivan's redesign. */
+.mk .mk-mt__bar {
+  position: absolute;
+  top: 12px;
+  left: 18px;
+  right: 12px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.mk .mk-mt__note {
+  min-width: 0;
+  color: var(--mk-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk .mk-mt__note b { margin-right: 10px; font-weight: 500; color: var(--mk-text); }
+.mk .mk-mt__bar .mk-button { flex: none; }
+.mk .mk-mt__durations {
+  position: absolute;
+  top: calc(50% + 47px);
+  left: 50%;
+  width: 210px;
+  margin-left: -105px;
+}
+
+/* ───────────── Button tester ───────────── */
+.mk .mk-mt__tester { flex: none; width: 758px; max-width: 100%; gap: 0; margin-top: 58px; }
+.mk .mk-mt__tester .mk-tester__col { flex: 0 1 285px; }
+.mk .mk-mt__tester .mk-tester__mouse { position: relative; width: 188px; flex: 0 1 188px; }
+
+/* The mouse's own render, 129 wide, 33 above the tiles, running to the bottom
+   of the frame like the reference (background, so nothing overflows). */
+.mk .mk-mt-art {
+  position: absolute;
+  top: -33px;
+  left: 50%;
+  width: 129px;
+  height: 197px;
+  margin-left: -64.5px;
+  background: no-repeat center top / 100% auto;
+  filter: drop-shadow(0 13px 24px color-mix(in srgb, var(--mk-bg-page) 47%, transparent));
+}
+.mk .mk-mt-art__lit {
+  position: absolute;
+  inset: 0;
+  -webkit-mask: no-repeat center top / 100% auto;
+          mask: no-repeat center top / 100% auto;
+  background: color-mix(in srgb, var(--mk-accent) 55%, transparent);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.mk .mk-mt-art__lit.is-on { opacity: 1; transition-duration: 40ms; }

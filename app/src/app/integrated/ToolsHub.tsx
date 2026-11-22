@@ -1,61 +1,46 @@
-// v2.0 integrated "Tools Hub" (Figma "Tools Hub") — HyperTune's Tools landing,
-// a 2×2 grid of tool tiles. In the real native shell this is drawn by the app
-// and "Mouse Tools" opens this web pane; here it's a web rendering of that
-// landing (shown via ?hub=1). Only Mouse Tools is ours, so the other tiles are
-// honest "Coming soon" placeholders rather than dead Open buttons.
+// Integrated "Tools Hub" — Ivan's Figma "Tools Hub" (Hypertune v2.0 › App /
+// Mouse): HyperTune's Tools landing, a 2×2 grid of tool tiles with Mouse Tools
+// first and a small removable "New" highlight. In the real native shell the app
+// draws this and "Mouse Tools" opens this web pane; here it's a web rendering of
+// that landing (shown via ?hub=1). Only Mouse Tools is ours: Network and Disk
+// Tools live in native HyperTune (their Open is inert here), Controller Tools
+// is "Coming Soon" as on the reference.
 import { type ReactNode } from "react";
-import { Gamepad2, HardDrive, Router } from "lucide-react";
-import * as control from "../../device/controller";
 import type { ControlSnapshot } from "../../device/types";
-import { deviceImage } from "../../ui/device-images";
+import { Button, Icon } from "./kit";
+import "./kit/tokens.css";
+import "./home.css";
 
-type Tool = { key: string; name: string; isNew?: boolean; enabled?: boolean };
+type Tool = { key: string; name: string; art: string; isNew?: boolean; state: "open" | "native" | "soon" };
 
 const TOOLS: Tool[] = [
-  { key: "mouse", name: "Mouse Tools", isNew: true, enabled: true },
-  { key: "network", name: "Network Tools" },
-  { key: "controller", name: "Controller Tools" },
-  { key: "disk", name: "Disk Tools" },
+  { key: "mouse", name: "Mouse Tools", art: "/v2/hub-mouse.png", isNew: true, state: "open" },
+  { key: "network", name: "Network Tools", art: "/v2/hub-network.png", state: "native" },
+  { key: "controller", name: "Controller Tools", art: "/v2/hub-controller.png", state: "soon" },
+  { key: "disk", name: "Disk Tools", art: "/v2/hub-disk.png", state: "native" },
 ];
 
-function ToolArt({ tool, snapshot }: { tool: Tool; snapshot: ControlSnapshot }): ReactNode {
-  if (tool.key === "mouse") {
-    const device = control.getActiveDevice();
-    return (
-      <img
-        className="htv2-hub-img"
-        src={snapshot.status ? deviceImage(device, snapshot.status.name) : "/v2/empty-mouse.png"}
-        alt=""
-        draggable={false}
-        onError={(e) => { e.currentTarget.src = "/v2/empty-mouse.png"; }}
-      />
-    );
-  }
-  const Icon = tool.key === "network" ? Router : tool.key === "controller" ? Gamepad2 : HardDrive;
-  return <Icon className="htv2-hub-icon" size={76} strokeWidth={1.3} aria-hidden="true" />;
-}
-
-export function ToolsHub({ snapshot, onOpenMouse }: { snapshot: ControlSnapshot; onOpenMouse: () => void }): ReactNode {
+export function ToolsHub({ onOpenMouse }: { snapshot: ControlSnapshot; onOpenMouse: () => void }): ReactNode {
   return (
-    <div className="htv2-hub">
-      <div className="htv2-hub-grid">
+    <div className="mk-hub">
+      <div className="mk-hub__grid">
         {TOOLS.map((tool) => (
-          <article key={tool.key} className={`htv2-hub-tile${tool.enabled ? "" : " is-soon"}`}>
-            <div className="htv2-hub-media">
-              <span className="htv2-hub-label">
-                {tool.name}
-                {tool.isNew ? <span className="htv2-hub-new">NEW</span> : null}
-              </span>
-              <ToolArt tool={tool} snapshot={snapshot} />
+          <article key={tool.key} className={`mk-hub__tile is-${tool.state}`} aria-label={tool.name}>
+            <header className="mk-hub__head">
+              <span className="mk-hub__name mk-t-button16">{tool.name}</span>
+              <span className="mk-hub__help" aria-hidden="true"><Icon name="info" size={10} /></span>
+              {tool.isNew ? <span className="mk-hub__new">NEW</span> : null}
+            </header>
+            <div className="mk-hub__art">
+              <img src={tool.art} alt="" draggable={false} />
             </div>
-            <button
-              type="button"
-              className="htv2-hub-open"
-              disabled={!tool.enabled}
-              onClick={tool.enabled ? onOpenMouse : undefined}
-            >
-              {tool.enabled ? "Open" : "Coming soon"}
-            </button>
+            <Button
+              label={tool.state === "soon" ? "Coming Soon" : "Open"}
+              className="mk-hub__open"
+              disabled={tool.state !== "open"}
+              title={tool.state === "native" ? "Open this from HyperTune" : undefined}
+              onClick={tool.state === "open" ? onOpenMouse : undefined}
+            />
           </article>
         ))}
       </div>

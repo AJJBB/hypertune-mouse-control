@@ -1,0 +1,46 @@
+/* Performance tab (sections/PerformanceSection.tsx). Scoped under .mk; tokens only. */
+
+/* Left column: the render fills what the docked DPI control leaves. A tall stage
+   table (up to 8 stages on some mice, while the pending bar takes 65 px of the
+   column) may squeeze the render below layout's 160 floor rather than push the
+   table out of the column. */
+.mk .mk-perf-left {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mk .mk-perf-left .mk-render__stage { min-height: 0; }
+
+/* Right column content: one non-shrinking stack inside the scroll area, gap 10
+   between Section headers, cards and rows (as on the reference screens). */
+.mk .mk-perf-right {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Section headers on the reference screens: 10 px above and below (the kit's 4 + 6). */
+.mk .mk-perf-head { padding: 6px 0; }
+
+.mk .mk-perf-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mk .mk-perf-note {
+  margin: 0;
+  padding: 0 10px;
+  color: var(--mk-text-2);
+}
+
+/* A Snapping slider standing alone under a Section header sits in a card
+   (the brief: "Snapping slider (in a card)"), like the Segmented Card container. */
+.mk .mk-perf-slider-card {
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+}

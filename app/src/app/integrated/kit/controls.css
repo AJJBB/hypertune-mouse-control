@@ -1,0 +1,440 @@
+/* Mouse Component System — controls group styles (scoped under .mk).
+   Geometry from scratch-figma/specs/*.txt (Figma padding order: top/right/bottom/left). */
+
+/* tokens.css has `.mk button { color: inherit }` (outranks one class): pin the base text colour of
+   button-based parts so they don't pick up a muted/accent parent colour. State rules below override. */
+.mk .mk-dropdown, .mk .mk-arrows__btn, .mk .mk-numfield__apply, .mk .mk-numfield__link,
+.mk .mk-time__arrow, .mk .mk-textinput__action { color: var(--mk-text); }
+
+/* ───────── Segment / Segmented / Toggle ───────── */
+
+.mk-segmented {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 2px;
+  width: 100%;
+  height: 40px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+}
+.mk-segmented--tall { height: 45px; }
+.mk-segmented--icons { height: 64px; }
+.mk-segmented.is-disabled { opacity: 0.4; }
+
+.mk-segcard {
+  display: flex;
+  width: 100%;
+  height: 55px;
+  padding: 5px;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+}
+.mk-segcard--icons { height: 74px; }
+.mk-segcard > .mk-segmented { height: 100%; }
+.mk-segcard.is-disabled { opacity: 0.4; }
+
+.mk-seg {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--mk-r-segment);
+  background: transparent;
+  font: 400 14px/16.9px var(--mk-font);
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+/* `.mk button { color: inherit }` (tokens.css) outranks a single class, hence `.mk .x` for base colours. */
+.mk .mk-seg { color: var(--mk-text-muted); }
+.mk-seg--icon { flex-direction: column; gap: 5px; }
+.mk-seg--solo { width: 100%; height: 100%; }
+.mk-seg__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mk-seg__icon { display: flex; flex: none; }
+/* Icon/static is a vertical stroke rotated 90° in Figma (the generated SVG lost the rotation). */
+.mk-seg__icon[data-icon="static"] { transform: rotate(90deg); }
+.mk-seg:hover:not(:disabled):not(.is-selected):not(.is-neutral) { color: var(--mk-text); }
+.mk-seg.is-selected { background: var(--mk-accent-surface); color: var(--mk-accent); }
+.mk-seg.is-neutral { background: var(--mk-bg-card); color: var(--mk-text); }
+.mk-seg.is-disabled { opacity: 0.4; }
+.mk-seg:focus-visible { outline-offset: -1px; }
+
+/* ───────── Dropdown + Menu ───────── */
+
+.mk-dropdown {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  height: 40px;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+  color: var(--mk-text);
+  text-align: left;
+}
+.mk-dropdown.is-open { padding: 3px; box-shadow: inset 0 0 0 1px var(--mk-accent-border); }
+.mk-dropdown.is-disabled { opacity: 0.4; }
+.mk-dropdown__value {
+  flex: 1 1 0;
+  min-width: 0;
+  align-self: center;
+  padding: 0 12px;
+  font: 500 14px/16.9px var(--mk-font);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mk-dropdown__value.is-placeholder { color: var(--mk-text-muted); }
+.mk-dropdown__chevron {
+  flex: none;
+  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mk-r-segment);
+  background: var(--mk-bg-control);
+  transition: background-color 120ms ease;
+}
+.mk-dropdown__chevron svg { opacity: 0.6; }
+.mk-dropdown:hover:not(:disabled) .mk-dropdown__chevron { background: var(--mk-bg-control-hover); }
+
+.mk-dropdown-layer { position: fixed; top: 0; left: 0; width: 0; height: 0; z-index: 1000; }
+.mk-menu {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-raised);
+  box-shadow: var(--mk-shadow-menu);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  outline: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mk-bg-control-hover) transparent;
+}
+.mk .mk-menu:focus-visible { outline: none; } /* focus lives on the listbox; the active row shows it */
+.mk-menu-item {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--mk-r-segment);
+  color: var(--mk-text);
+  font: 400 14px/16.9px var(--mk-font);
+  cursor: pointer;
+  user-select: none;
+}
+.mk-menu-item__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk-menu-item__check { flex: none; }
+.mk-menu-item.is-active { background: var(--mk-bg-control); }
+.mk-menu-item.is-selected { background: var(--mk-accent-surface); color: var(--mk-accent); }
+.mk-menu-item.is-disabled { opacity: 0.4; cursor: default; }
+
+/* ───────── Arrow stepper ───────── */
+
+.mk-arrows {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  height: 40px;
+  padding: 2px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+}
+.mk-arrows.is-disabled { opacity: 0.4; }
+.mk-arrows__btn {
+  flex: none;
+  width: 69px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mk-r-segment);
+  background: var(--mk-bg-control);
+  color: var(--mk-text);
+  transition: background-color 120ms ease;
+}
+.mk-arrows__btn svg { opacity: 0.5; }
+.mk-arrows__btn:hover:not(:disabled) { background: var(--mk-bg-control-hover); }
+.mk-arrows__btn.is-edge { opacity: 0.35; }
+.mk-arrows__value {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 500 14px/16.9px var(--mk-font);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ───────── Slider ───────── */
+
+.mk-slider { position: relative; width: 100%; height: 27px; --p: 0; }
+.mk-slider.is-disabled { opacity: 0.4; }
+.mk-slider__track {
+  position: absolute; left: 0; right: 0; top: 10px; height: 6px; transform: translateY(0.5px); /* y 10.5 exact */
+  border-radius: 9px; background: var(--mk-bg-track);
+}
+.mk-slider__fill {
+  position: absolute; left: 2px; top: 12px; height: 2px; transform: translateY(0.5px);
+  width: calc(12px + var(--p) * (100% - 28px));
+  border-radius: 9px; background: var(--mk-accent);
+}
+.mk-slider__spectrum { position: absolute; left: 2px; right: 2px; top: 12px; height: 2px; transform: translateY(0.5px); border-radius: 9px; }
+.mk-slider__stops { position: absolute; left: 14px; right: 14px; top: 22px; height: 4px; }
+.mk-slider__stop {
+  position: absolute; top: 0; width: 4px; height: 4px;
+  border-radius: 50%; background: var(--mk-text-3);
+}
+/* The thumb travels (width - 28) px. A transform (not `left`) keeps Figma's sub-pixel positions
+   (e.g. x 94.5 at 25%) and moves smoothly while dragging. */
+.mk-slider__travel { position: absolute; top: 0; left: 0; right: 28px; height: 27px; pointer-events: none; }
+.mk-slider__mover { width: 100%; height: 100%; transform: translateX(calc(var(--p) * 100%)); }
+.mk-slider__thumb {
+  position: absolute; top: 0; left: 0;
+  width: 28px; height: 27px; padding: 2px;
+  border-radius: var(--mk-r-pill); background: var(--mk-bg-page);
+  pointer-events: none;
+}
+.mk-slider__grip {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: flex-start; gap: 3px;
+  padding-left: 8px; /* 1px lines at thumb x 10/14/18 ≈ Figma's 1.2px lines at 9.2/13.4/17.6 */
+  border-radius: var(--mk-r-pill); background: var(--mk-bg-control);
+  transition: background-color 120ms ease;
+}
+.mk-slider__line { flex: none; width: 1px; height: 9px; background: var(--mk-icon-muted); }
+.mk-slider--hue .mk-slider__line { background: var(--mk-text-2); }
+.mk-slider__input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; padding: 0; opacity: 0; cursor: pointer;
+  -webkit-appearance: none; appearance: none; background: transparent;
+}
+.mk-slider__input:disabled { cursor: default; }
+.mk-slider__input::-webkit-slider-runnable-track { height: 27px; background: transparent; border: 0; }
+.mk-slider__input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 28px; height: 27px; border: 0; }
+.mk-slider__input::-moz-range-thumb { width: 28px; height: 27px; border: 0; }
+.mk-slider:not(.mk-slider--hue) .mk-slider__input:hover:not(:disabled) ~ .mk-slider__travel .mk-slider__grip,
+.mk-slider:not(.mk-slider--hue) .mk-slider__input:active:not(:disabled) ~ .mk-slider__travel .mk-slider__grip {
+  background: var(--mk-bg-control-hover);
+}
+.mk-slider__input:focus-visible ~ .mk-slider__travel .mk-slider__thumb { outline: 2px solid var(--mk-accent-border); outline-offset: 1px; }
+
+/* ───────── Snapping slider ───────── */
+
+.mk-snap { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.mk-snap.is-disabled { opacity: 0.4; }
+.mk-snap.is-disabled .mk-slider.is-disabled { opacity: 1; }
+.mk-snap__main { display: flex; align-items: center; gap: 25px; height: 29px; }
+.mk-snap__main > .mk-slider { flex: 1 1 0; min-width: 0; }
+.mk-snap__value {
+  flex: none; width: 96px; height: 29px; padding: 0 10px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--mk-r-control); background: var(--mk-bg-page);
+  font: 500 14px/16.9px var(--mk-font); white-space: nowrap;
+}
+.mk-snap__labels {
+  display: flex; justify-content: space-between;
+  padding: 0 127px 0 6px; /* 127 = value field 96 + gap 25 + 6 */
+  color: var(--mk-text-3);
+  font: 400 11px/13.3px var(--mk-font);
+  white-space: nowrap;
+}
+
+/* ───────── Step picker / Step button ───────── */
+
+.mk-steps { display: flex; gap: 4px; width: 100%; height: 36px; }
+.mk-steps.is-disabled { opacity: 0.4; }
+.mk-step {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mk-r-segment);
+  background: var(--mk-bg-control);
+  font: 500 14px/16.9px var(--mk-font);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.mk .mk-step { color: var(--mk-text-muted); }
+.mk-step--solo { flex: none; width: 36px; }
+.mk-step:hover:not(:disabled):not(.is-selected) { background: var(--mk-bg-control-hover); }
+.mk-step.is-selected { background: var(--mk-accent-surface); color: var(--mk-accent); }
+.mk-step--solo:disabled { opacity: 0.4; }
+.mk-step:focus-visible { outline-offset: 1px; }
+
+/* ───────── Time stepper ───────── */
+
+.mk-time {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  height: 40px;
+  padding: 2px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+}
+.mk-time.is-disabled { opacity: 0.4; }
+.mk-time__part {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: var(--mk-r-segment);
+  background: var(--mk-bg-card);
+  cursor: default;
+  user-select: none;
+  outline: none;
+  transition: background-color 120ms ease;
+}
+.mk .mk-time__part:focus-visible { outline: none; } /* the accent Focused fill is the indicator */
+.mk-time__value { color: var(--mk-text); font: 500 14px/16.9px var(--mk-font); font-variant-numeric: tabular-nums; }
+.mk-time__unit { color: var(--mk-text-muted); font: 400 12px/14.5px var(--mk-font); }
+.mk-time__part:focus, .mk-time__part.is-focused { background: var(--mk-accent-surface); }
+.mk-time__part:focus .mk-time__value, .mk-time__part.is-focused .mk-time__value { color: var(--mk-accent); }
+.mk-time__part:focus .mk-time__unit, .mk-time__part.is-focused .mk-time__unit { color: var(--mk-text); }
+.mk-time__arrows { display: flex; flex-direction: column; padding-left: 6px; }
+.mk-time__arrow {
+  display: flex; width: 11px; height: 11px; padding: 0; border: 0;
+  background: transparent; color: var(--mk-text); opacity: 0.5;
+}
+.mk-time__arrow:hover:not(:disabled) { opacity: 1; }
+
+/* ───────── Number field ───────── */
+
+.mk-numfield { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+.mk-numfield.is-disabled { opacity: 0.4; }
+.mk-numfield__main { display: flex; align-items: center; gap: 6px; height: 40px; }
+.mk-numfield__field {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+  cursor: text;
+  transition: background-color 120ms ease;
+}
+.mk-numfield__field:focus-within, .mk-numfield__field.is-focused { background: var(--mk-bg-card); }
+.mk-numfield__field.is-error { background: var(--mk-field-error); }
+.mk-numfield__input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 17px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mk-text);
+  font: 500 14px/16.9px var(--mk-font);
+  caret-color: var(--mk-accent);
+  outline: none;
+}
+.mk .mk-numfield__input:focus-visible { outline: none; }
+.mk-numfield__unit, .mk-numfield__axis {
+  flex: none;
+  color: var(--mk-text-muted);
+  font: 400 12px/14.5px var(--mk-font);
+  white-space: nowrap;
+}
+.mk-numfield__link {
+  flex: none;
+  display: flex;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mk-text);
+  opacity: 0.6;
+  transform: rotate(90deg);
+}
+.mk-numfield__link.is-button:hover:not(:disabled) { opacity: 1; }
+.mk-numfield__link.is-linked { color: var(--mk-accent); opacity: 1; }
+.mk-numfield__apply {
+  flex: none;
+  min-width: 68px; /* Figma HUG width of "Apply" in Inter; keeps field widths exact with Inter Display */
+  height: 40px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-control);
+  color: var(--mk-text);
+  font: 400 14px/16.9px var(--mk-font);
+  white-space: nowrap;
+  transition: background-color 120ms ease;
+}
+.mk-numfield__apply:hover:not(:disabled) { background: var(--mk-bg-control-hover); }
+.mk-numfield__apply.is-primary { background: var(--mk-accent-surface); }
+.mk-numfield__apply.is-primary:hover:not(:disabled) { background: var(--mk-primary-hover); }
+.mk-numfield__apply:disabled { opacity: 0.4; }
+.mk-numfield__error, .mk-textinput__error {
+  color: var(--mk-danger);
+  font: 400 12px/14.5px var(--mk-font);
+}
+
+/* ───────── Text input ───────── */
+
+.mk-textinput { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+.mk-textinput.is-disabled { opacity: 0.4; }
+.mk-textinput__field {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+  cursor: text;
+  transition: background-color 120ms ease;
+}
+.mk-textinput__field:focus-within, .mk-textinput__field.is-focused { background: var(--mk-bg-card); }
+.mk-textinput__field.is-error { background: var(--mk-field-error); }
+.mk-textinput__input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 17px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mk-text);
+  font: 500 14px/16.9px var(--mk-font);
+  caret-color: var(--mk-accent);
+  outline: none;
+}
+.mk .mk-textinput__input:focus-visible { outline: none; }
+/* Forced Focused state (gallery/mockups): hug the text and draw Figma's 1.5×17 accent caret. */
+.mk-textinput__input.is-hug { flex: none; field-sizing: content; min-width: 1px; max-width: 100%; }
+.mk-textinput__caret { flex: none; width: 1.5px; height: 17px; background: var(--mk-accent); }
+.mk-textinput__spacer { flex: 1 1 0; }
+.mk-textinput__input::placeholder { color: var(--mk-text-muted); opacity: 1; }
+.mk-textinput__actions { flex: none; display: flex; gap: 6px; }
+.mk-textinput__action {
+  display: flex; width: 18px; height: 18px; padding: 0; border: 0;
+  background: transparent; color: var(--mk-text);
+}
+.mk-textinput__action.is-confirm { color: var(--mk-accent); }
+.mk-textinput__action.is-cancel { opacity: 0.5; }
+.mk-textinput__action:hover:not(:disabled) { opacity: 1; filter: brightness(1.15); }

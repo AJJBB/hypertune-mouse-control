@@ -1,29 +1,53 @@
-// v2.0 integrated "Mouse Control" content pane — the device grid (list view).
-// Native HyperTune draws the window, sidebar and breadcrumb; this is the content
-// below it. Matches the Figma "App / Mouse WIP → Mouse - Added / Nothing
-// Connected" frames 1:1, driven by the live controller snapshot.
-import { useState, type ReactNode } from "react";
-import { Plus, Flag, Trash2 } from "lucide-react";
+// Integrated "Mouse Control" Home — Ivan's Figma "Mouse – Added (device list)"
+// and "Mouse – Nothing Connected" screens (Hypertune v2.0 › App / Mouse),
+// rebuilt on the Mouse Component System kit. Native HyperTune draws the window,
+// sidebar and breadcrumb; this is the 1210×695 content frame below them.
+//
+// One card per mouse (the active one highlighted) plus a dashed "Add mouse"
+// card; the grid scrolls inside the frame so any number of mice lays out with
+// cards at their full 390×447 size. Beyond the design (kept on purpose): the
+// Remove-mouse trash button + its inline confirm, a quiet Report-a-problem
+// entry, and the OpenMouse / AGPL-3.0 attribution the licence requires.
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as control from "../../device/controller";
 import { connectionText } from "../../i18n";
 import type { ControlSnapshot, SidebarDevice } from "../../device/types";
 import { deviceImage } from "../../ui/device-images";
+import { BatteryIcon, Button, Icon, IconButton, InfoRow, StatusPill } from "./kit";
+import { ConnectNoticeDialog } from "./ConnectNoticeDialog";
+import { LegalCredit } from "./LegalCredit";
+import "./home.css";
 
 function isCharging(state: string | undefined): boolean {
   return state === "Charging" || state === "Charging slowly" || state === "Almost full";
 }
 
-/** Battery pill icon — outline with a proportional fill; amber + bolt when charging. */
-function BatteryIcon({ percent, charging }: { percent: number; charging: boolean }): ReactNode {
-  const w = Math.max(1, Math.round((percent / 100) * 11));
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
-      <rect x="2" y="8" width="16" height="9" rx="2.5" stroke="#b7b7b8" strokeWidth="1.6" />
-      <rect x="19" y="11" width="2" height="3" rx="1" fill="#b7b7b8" />
-      <rect x="4" y="10" width={w} height="5" rx="1" fill={charging ? "#efbf04" : "#b7b7b8"} />
-      {charging ? <path d="M12 7.5l-2.2 3.4h1.9l-.4 2.6 2.4-3.6h-1.9z" fill="#efbf04" /> : null}
-    </svg>
-  );
+/** "Pulsar X2 V2" under a "PULSAR" brand line reads as "X2 V2" (as on the reference). */
+function modelName(name: string, brand: string): string {
+  const b = brand.trim();
+  if (b && name.toLowerCase().startsWith(`${b.toLowerCase()} `)) {
+    const rest = name.slice(b.length + 1).trim();
+    if (rest) return rest;
+  }
+  return name;
+}
+
+/** Starts control.connect() and tracks it, so the Add buttons disable and the
+    "Add a mouse" (connecting) popup can show while it runs. */
+function useAddMouse(snapshot: ControlSnapshot): { adding: boolean; disabled: boolean; add: () => void; dismiss: () => void } {
+  const [adding, setAdding] = useState(false);
+  const [popupOpen, setPopupOpen] = useState(false);
+  return {
+    adding: adding && popupOpen,
+    disabled: adding || snapshot.connectDisabled,
+    add: () => {
+      if (adding) return;
+      setAdding(true);
+      setPopupOpen(true);
+      void control.connect().finally(() => { setAdding(false); setPopupOpen(false); });
+    },
+    dismiss: () => setPopupOpen(false),
+  };
 }
 
 function DeviceCard({ device, snapshot }: { device: SidebarDevice; snapshot: ControlSnapshot }): ReactNode {
@@ -32,11 +56,13 @@ function DeviceCard({ device, snapshot }: { device: SidebarDevice; snapshot: Con
   const locale = snapshot.preferences.locale;
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const confirmRef = useRef<HTMLDivElement>(null);
   const [brandFromDetail, connFromDetail] = device.detail.split(" · ");
 
-  const brand = (status?.brand ?? brandFromDetail ?? "").toUpperCase();
-  const model = status?.name ?? device.name;
-  const dpi = status && status.dpi > 0 ? status.dpi.toLocaleString() : "—";
+  const brandRaw = status?.brand ?? brandFromDetail ?? "";
+  const model = modelName(status?.name ?? device.name, brandRaw);
+  const fullName = status?.name ?? device.name;
+  const dpi = status && status.dpi > 0 ? status.dpi.toLocaleString("en-US") : "—";
   const polling = status?.pollingRateHz ? `${status.pollingRateHz} Hz` : "—";
   const connection = status?.connectionType
     ? status.connectionDetail
@@ -46,89 +72,86 @@ function DeviceCard({ device, snapshot }: { device: SidebarDevice; snapshot: Con
   const battery = status?.batteryPercent ?? null;
   const charging = isCharging(status?.batteryState);
 
+  // Keyboard users land on Cancel when the confirm opens; Esc backs out.
+  useEffect(() => {
+    if (!confirming) return;
+    confirmRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [confirming]);
+
+  const remove = (): void => {
+    if (removing) return;
+    setRemoving(true);
+    void control.removeDevice(device.index).finally(() => {
+      setRemoving(false);
+      setConfirming(false);
+    });
+  };
+
   return (
-    <article className="htv2-card">
-      <div className="htv2-card-media">
+    <article className={`mk-home-card${active ? " is-active" : ""}`} aria-label={fullName}>
+      <div className="mk-home-card__render">
         <img
+          className="mk-home-card__img"
           src={deviceImage({ vendorId: device.vendorId, productId: device.productId } as HIDDevice, device.name)}
           alt=""
           draggable={false}
           decoding="async"
           onError={(e) => { e.currentTarget.src = deviceImage(null); }}
         />
-        <div className="htv2-card-badges">
-          <span>
-            {active ? (
-              <span className="htv2-badge is-active">
-                <span className="htv2-badge-dot" />
-                Active
-              </span>
-            ) : null}
-          </span>
-          <span>
-            {battery !== null ? (
-              <span className="htv2-badge htv2-badge-battery">
-                <BatteryIcon percent={battery} charging={charging} />
-                {battery}%{charging ? " Charging" : ""}
-              </span>
-            ) : null}
-          </span>
+        <div className="mk-home-card__pills">
+          {active ? <StatusPill type="active" label="Active" /> : <span />}
+          {battery !== null ? (
+            <StatusPill
+              label={`${battery}%${charging ? " Charging" : ""}`}
+              icon={<BatteryIcon percent={battery} charging={charging} />}
+            />
+          ) : null}
         </div>
       </div>
-      <div className="htv2-card-body">
-        <div className="htv2-card-info">
-          <div className="htv2-card-name">
-            {brand ? <span className="htv2-card-brand">{brand}</span> : null}
-            <h3 className="htv2-card-model">{model}</h3>
+      <div className="mk-home-card__body">
+        <div className="mk-home-card__info">
+          <div className="mk-home-card__name">
+            {brandRaw ? <span className="mk-home-card__brand mk-t-caption12m">{brandRaw}</span> : null}
+            <h3 className="mk-home-card__model mk-t-heading22">{model}</h3>
           </div>
-          <dl className="htv2-card-specs">
-            <div className="htv2-spec-row"><dt>DPI</dt><dd>{dpi}</dd></div>
-            <div className="htv2-spec-row"><dt>Polling rate</dt><dd>{polling}</dd></div>
-            <div className="htv2-spec-row"><dt>Connection</dt><dd>{connection}</dd></div>
-          </dl>
+          <div className="mk-home-card__specs">
+            <InfoRow label="DPI" value={dpi} />
+            <InfoRow label="Polling rate" value={polling} />
+            <InfoRow label="Connection" value={connection} />
+          </div>
         </div>
-        <div className="htv2-card-actions">
-          <button
-            type="button"
-            className="htv2-card-open"
+        <div className="mk-home-card__actions">
+          <Button
+            label="Open"
+            className="mk-home-card__open"
+            ariaLabel={`Open ${fullName}`}
             onClick={() => void control.openDeviceOverview(device.index)}
-          >
-            Open
-          </button>
-          <button
-            type="button"
-            className="htv2-card-remove"
-            aria-label={`Remove ${model}`}
+          />
+          <IconButton
+            icon="trash"
+            danger
+            iconSize={18}
+            className="mk-home-card__remove"
+            label={`Remove ${fullName}`}
             title="Remove this mouse"
             onClick={() => setConfirming(true)}
-          >
-            <Trash2 size={16} strokeWidth={1.8} aria-hidden="true" />
-          </button>
+          />
         </div>
       </div>
       {confirming ? (
-        <div className="htv2-card-confirm" role="alertdialog" aria-label="Remove mouse" aria-modal="true">
-          <p className="htv2-card-confirm-title">Remove this mouse?</p>
-          <p className="htv2-card-confirm-sub">{model} will be removed from HyperTune. You can add it again anytime.</p>
-          <div className="htv2-card-confirm-actions">
-            <button type="button" className="htv2-confirm-cancel" disabled={removing} onClick={() => setConfirming(false)}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="htv2-confirm-remove"
-              disabled={removing}
-              onClick={() => {
-                if (removing) return;
-                setRemoving(true);
-                void control.removeDevice(device.index).finally(() => {
-                  setRemoving(false);
-                  setConfirming(false);
-                });
-              }}
-            >
-              {removing ? "Removing…" : "Remove"}
-            </button>
+        <div
+          ref={confirmRef}
+          className="mk-home-card__confirm"
+          role="alertdialog"
+          aria-label="Remove mouse"
+          aria-modal="true"
+          onKeyDown={(e) => { if (e.key === "Escape" && !removing) setConfirming(false); }}
+        >
+          <p className="mk-home-card__confirm-title mk-t-title16">Remove this mouse?</p>
+          <p className="mk-home-card__confirm-sub mk-t-body14">{fullName} will be removed from HyperTune. You can add it again anytime.</p>
+          <div className="mk-home-card__confirm-actions">
+            <Button label="Cancel" size="medium" disabled={removing} onClick={() => setConfirming(false)} />
+            <Button label={removing ? "Removing…" : "Remove"} size="medium" variant="danger" icon="trash" showIcon={!removing} disabled={removing} onClick={remove} />
           </div>
         </div>
       ) : null}
@@ -136,87 +159,82 @@ function DeviceCard({ device, snapshot }: { device: SidebarDevice; snapshot: Con
   );
 }
 
-function AddMouseCard({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
-  const [busy, setBusy] = useState(false);
-  const disabled = busy || snapshot.connectDisabled;
+function AddMouseCard({ disabled, onAdd }: { disabled: boolean; onAdd: () => void }): ReactNode {
   return (
-    <button
-      type="button"
-      className="htv2-card htv2-card-add"
-      disabled={disabled}
-      onClick={() => {
-        if (busy) return;
-        setBusy(true);
-        void control.connect().finally(() => setBusy(false));
-      }}
-    >
-      <span className="htv2-add-plus" aria-hidden="true"><Plus size={28} strokeWidth={2.4} /></span>
-      <span className="htv2-add-title">Add mouse</span>
-      <span className="htv2-add-sub">Plug in another mouse or its wireless receiver, then add it here. Turn wireless mice on first.</span>
+    <button type="button" className="mk-home-add" disabled={disabled} onClick={onAdd}>
+      <img className="mk-home-add__art" src="/v2/empty-mouse.png" alt="" draggable={false} />
+      <span className="mk-home-plus" aria-hidden="true">
+        <span className="mk-home-plus__core"><Icon name="plus" size={29} /></span>
+      </span>
+      <span className="mk-home-add__text">
+        <span className="mk-home-add__title">Add mouse</span>
+        <span className="mk-home-add__sub">Plug in another mouse or its wireless receiver, then add it here. Turn wireless mice on first.</span>
+      </span>
     </button>
   );
 }
 
-/** Centered empty state — no devices connected. */
-function EmptyState({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
-  const [busy, setBusy] = useState(false);
-  const disabled = busy || snapshot.connectDisabled;
+/** Nothing connected: art, title, copy, the glowing Add mouse call to action
+    and a "Having an issue?" link (opens Report a problem). */
+function EmptyState({ disabled, onAdd }: { disabled: boolean; onAdd: () => void }): ReactNode {
   return (
-    <div className="htv2-empty">
-      <img className="htv2-empty-art" src="/v2/empty-mouse.png" alt="" draggable={false} />
-      <h2 className="htv2-empty-title">No mouse connected</h2>
-      <p className="htv2-empty-sub">Plug in your mouse or its wireless receiver, then add it.<br />Turn wireless mice on first so HyperTune can find them.</p>
-      <button
-        type="button"
-        className="htv2-add-btn"
-        disabled={disabled}
-        onClick={() => {
-          if (busy) return;
-          setBusy(true);
-          void control.connect().finally(() => setBusy(false));
-        }}
-      >
-        <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
-        Add mouse
-      </button>
+    <div className="mk-home-empty">
+      <div className="mk-home-empty__art" aria-hidden="true">
+        <img src="/v2/empty-mouse.png" alt="" draggable={false} />
+      </div>
+      <div className="mk-home-empty__text">
+        <h2 className="mk-home-empty__title">No mouse connected</h2>
+        <p className="mk-home-empty__sub">Plug in your mouse or its wireless receiver, then add it.<br />Turn wireless mice on first so HyperTune can find them.</p>
+        <div className="mk-home-cta-well">
+          <Button label="Add mouse" icon="plus" variant="primary" className="mk-home-cta" disabled={disabled} onClick={onAdd} />
+        </div>
+        <button type="button" className="mk-home-link mk-t-body14" onClick={() => control.openReportProblem()}>
+          Having an issue?
+        </button>
+      </div>
     </div>
   );
 }
 
-/** Bottom bar for the connect/grid page: a Report-a-problem prompt (so users
-    can always report issues) plus the required OpenMouse / AGPL attribution. */
-function GridFoot(): ReactNode {
+/** Quiet bottom line: Report a problem (grid only — the empty state has its own
+    link) and the OpenMouse / AGPL-3.0 attribution (licence requirement). */
+function HomeFoot({ report }: { report: boolean }): ReactNode {
   return (
-    <footer className="htv2-grid-foot">
-      <div className="htv2-grid-report">
-        <span>Mouse not detecting, or having an issue?</span>
-        <button type="button" className="htv2-dreport" onClick={() => control.openReportProblem()}>
-          <Flag size={15} strokeWidth={1.8} />Report a problem
-        </button>
-      </div>
-      <div className="htv2-legal">
-        <span>In partnership with <a href="https://github.com/OpenMouse-Project/mouse-protocol" target="_blank" rel="noreferrer noopener">OpenMouse</a></span>
-        <span><a href="https://github.com/AJJBB/hypertune-mouse-control" target="_blank" rel="noreferrer noopener">Source</a>{" · "}<a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer noopener">AGPL-3.0</a></span>
-      </div>
+    <footer className="mk-home-foot mk-t-caption12">
+      {report ? (
+        <span className="mk-home-foot__report">
+          Mouse not detecting, or having an issue?{" "}
+          <button type="button" className="mk-home-foot__link" onClick={() => control.openReportProblem()}>
+            <Icon name="flag" size={12} />Report a problem
+          </button>
+        </span>
+      ) : <span />}
+      <LegalCredit />
     </footer>
   );
 }
 
 export function DeviceGrid({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const mice = snapshot.devices.filter((d) => d.kind === "mouse");
+  const add = useAddMouse(snapshot);
   return (
-    <div className="htv2-grid-wrap">
+    <div className="mk-home">
       {mice.length === 0 ? (
-        <EmptyState snapshot={snapshot} />
+        <EmptyState disabled={add.disabled} onAdd={add.add} />
       ) : (
-        <div className="htv2-device-grid">
+        <div className="mk-home-grid" role="list" aria-label="Your mice">
           {mice.map((device) => (
-            <DeviceCard key={`${device.vendorId}:${device.productId}:${device.index}`} device={device} snapshot={snapshot} />
+            <div role="listitem" key={`${device.vendorId}:${device.productId}:${device.index}`} className="mk-home-grid__cell">
+              <DeviceCard device={device} snapshot={snapshot} />
+            </div>
           ))}
-          <AddMouseCard snapshot={snapshot} />
+          <div role="listitem" className="mk-home-grid__cell">
+            <AddMouseCard disabled={add.disabled} onAdd={add.add} />
+          </div>
         </div>
       )}
-      <GridFoot />
+      <HomeFoot report={mice.length > 0} />
+      <ConnectNoticeDialog variant="connecting" open={add.adding} onClose={add.dismiss} />
     </div>
   );
 }

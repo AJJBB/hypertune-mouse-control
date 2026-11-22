@@ -312,6 +312,7 @@ export class Keychron8kHidClient {
       ...(buttons ? {
         buttonMappings: Object.fromEntries(buttons.map(({ button, action }) => [button.name, action])),
         buttonOptions: keychronButtonOptions("8k", status.features.pollingGears),
+        buttonDefaults: Object.fromEntries(buttons.map(({ button }) => [button.name, button.defaultAction])),
       } : {}),
       ...(light && model?.light ? { lighting: keychronLighting(light, model.light) } : {}),
       firmware: [identity.firmware ?? "Firmware unavailable"],

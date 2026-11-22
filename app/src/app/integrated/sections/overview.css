@@ -1,0 +1,25 @@
+/* Overview tab (Figma "Mouse - Overview"). Scoped under .mk.
+   Right column (680): padding 0/10 → 660-wide Status panel + Device info list,
+   gap 10, vertically centred like the reference (main:CENTER) — auto margins
+   fall back to top-aligned when the column has to scroll. */
+.mk .mk-ov {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: auto 0;
+  padding: 0 10px;
+}
+/* A mouse that reports neither DPI nor polling rate gets no tile row. */
+.mk .mk-ov .mk-status-panel__tiles:empty { display: none; }
+/* The tile's blurred glow blobs are decoration: clip them with paint
+   containment instead of overflow:hidden so the tile isn't a (scrollable)
+   overflow box. Same visual result. */
+.mk .mk-ov .mk-readout { overflow: visible; contain: paint; }
+/* On the screen each Info-row value sits in a 12-padded pill inside the
+   10-padded row (value ends 22 from the edge), icon → value gap 6. */
+.mk .mk-ov .mk-info-row { padding-right: 22px; }
+.mk .mk-ov .mk-info-row__icon { margin-right: -4px; }
+/* Long driver strings (e.g. a connection detail listing several facts) trim
+   with an ellipsis instead of pushing past the row. */
+.mk .mk-ov .mk-info-row__value-wrap { overflow: hidden; }
+.mk .mk-ov .mk-info-row__secondary { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

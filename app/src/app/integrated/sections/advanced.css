@@ -1,0 +1,75 @@
+/* Advanced tab (sections/AdvancedSection.tsx). Scoped under .mk, tokens only.
+   Geometry from the "Mouse - Advanced" screen (scratch-figma/advanced.png, node 10357:27256). */
+
+/* Right-column content: blocks stacked with the column's gap 10. */
+.mk .mk-adv {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.mk .mk-adv-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.mk .mk-adv-group:focus { outline: none; }
+
+/* The screens place Section headers with padding 10/0/10/10 (39 high for a title alone) — the
+   library component's own padding is 4/0/4/10. Match the screen. */
+.mk .mk-adv .mk-section-header { padding-top: 10px; padding-bottom: 10px; }
+
+/* Signal strength — the Signal chart's header (665 wide, pad-top 10; header pad-left 10,
+   title Title 16 · gap 5 · value Heading 18 accent; Signal strength pill right). */
+.mk .mk-adv-signal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0 0 10px;
+  min-width: 0;
+}
+.mk .mk-adv-signal__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.mk .mk-adv-signal__title { margin: 0; color: var(--mk-text); line-height: 19px; }
+.mk .mk-adv-signal__value { color: var(--mk-accent); line-height: 22px; }
+.mk .mk-adv-signal__note { color: var(--mk-text-2); line-height: 22px; }
+
+/* SmartShift threshold: track-only Slider + value field in the 290×40 control slot
+   (the Snapping slider's main row: slider · value well on bg/page). */
+.mk .mk-adv-range {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  height: var(--mk-control-h);
+}
+.mk .mk-adv-range > .mk-slider { flex: 1 1 0; min-width: 0; }
+.mk .mk-adv-range__value {
+  flex: none;
+  width: 56px;
+  height: 29px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+  color: var(--mk-text);
+}
+
+/* Two Medium buttons filling the control slot (pairing / Easy-Switch confirmations). */
+.mk .mk-adv-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.mk .mk-adv-actions > .mk-button { flex: 1 1 0; min-width: 0; }
+
+/* Read-only rows: long values (transport IDs, polling lists) wrap instead of running past the row. */
+.mk .mk-adv .mk-info-row__label { flex: none; }
+.mk .mk-adv .mk-info-row__value-wrap { flex: 0 1 auto; white-space: normal; justify-content: flex-end; }
+.mk .mk-adv .mk-info-row__value { text-align: right; overflow-wrap: anywhere; }

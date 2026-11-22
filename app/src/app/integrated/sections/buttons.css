@@ -1,0 +1,29 @@
+/* Buttons tab (sections/ButtonsSection.tsx + sections/buttons/*). Scoped under .mk; tokens only. */
+
+/* One group = a Section header (or the remap grid's own header) + its rows. Groups sit in the
+   right column, which already stacks them with gap 10. */
+.mk .mk-btn-group { flex: none; display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
+
+/* The remap list header as on the Buttons (list) screen: a 48-tall bar (Large button centred, no
+   4/4 padding) so the first row lands where the screen puts it (header + gap ≈ 53), and the same
+   height whether or not this mouse offers "Reset to default" — rows line up across mice. */
+.mk .mk-btn-group > .mk-remap-grid > .mk-list-header { min-height: 48px; padding-top: 0; padding-bottom: 0; }
+
+/* Control=Value in a Remap row's 220-wide slot: read-only action text, right-aligned like the
+   Setting row's Value control. */
+.mk .mk-btn-value {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 2px 0 12px;
+  color: var(--mk-text-2);
+  line-height: 40px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Context line under a group (firmware locks, where changes are saved). */
+.mk .mk-btn-note { margin: 0; padding: 0 10px; color: var(--mk-text-2); }

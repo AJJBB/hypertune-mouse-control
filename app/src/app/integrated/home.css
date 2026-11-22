@@ -1,0 +1,554 @@
+/* Integrated Home screens + popups + pending bar (Ivan's Figma "Mouse – Added",
+   "Mouse – Nothing Connected", "Popup – Connecting / Error / Close GHUB",
+   "Tools Hub"). Scoped under .mk, tokens only. Geometry from the distilled
+   screen nodes (scratch-figma/screens-all.txt). */
+
+/* ───────────── Home frame (1210×695, padding 10, bg/page) ───────────── */
+.mk .mk-home {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 1210px;
+  margin: 0 auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--mk-bg-page);
+  color: var(--mk-text);
+}
+
+/* Device grid: 390-wide cards, 3 across the 1190 content width, gap 10. The
+   grid scrolls inside the frame; cards keep their full height (never squash). */
+.mk .mk-home-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-auto-rows: 447px;
+  gap: 10px;
+  align-content: start;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mk-bg-control-hover) transparent;
+}
+.mk .mk-home-grid__cell { display: flex; min-width: 0; min-height: 0; }
+
+/* ───────────── Device card (390×447, bg/card, r9) ───────────── */
+.mk .mk-home-card {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+  overflow: hidden;
+}
+/* Render area 390×220: bg/raised → card gradient; the active mouse glows green. */
+.mk .mk-home-card__render {
+  position: relative;
+  flex: 0 0 220px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--mk-bg-raised), var(--mk-bg-card));
+}
+.mk .mk-home-card.is-active .mk-home-card__render {
+  background:
+    radial-gradient(60% 70% at 50% 100%, color-mix(in srgb, var(--mk-accent) 11%, transparent), transparent 100%),
+    linear-gradient(180deg, var(--mk-bg-raised), var(--mk-bg-card));
+}
+/* The mouse sits high and runs off the bottom, fading out (reference art). */
+.mk .mk-home-card__img {
+  position: absolute;
+  left: 50%;
+  top: 20px;
+  height: 330px;
+  width: auto;
+  max-width: 300px;
+  object-fit: contain;
+  object-position: top center;
+  transform: translateX(-50%);
+  user-select: none;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, var(--mk-text) 45%, transparent 62%);
+          mask-image: linear-gradient(180deg, var(--mk-text) 45%, transparent 62%);
+  filter: drop-shadow(0 12px 22px color-mix(in srgb, var(--mk-bg-page) 60%, transparent));
+}
+.mk .mk-home-card__pills {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  right: 15px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+/* Reference pills: pad 4/8; "Active" in Medium. */
+.mk .mk-home-card__pills .mk-pill { padding: 4px 8px; }
+.mk .mk-home-card__pills .mk-pill--active { gap: 7px; font-weight: 500; }
+
+/* Body: pad 15, gap 18 → info (name + specs, gap 15) and the Open row. */
+.mk .mk-home-card__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px;
+}
+.mk .mk-home-card__info { display: flex; flex-direction: column; gap: 15px; min-width: 0; }
+.mk .mk-home-card__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mk .mk-home-card__brand {
+  color: var(--mk-text-3);
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  line-height: 15px;
+}
+.mk .mk-home-card__model {
+  margin: 0;
+  color: var(--mk-text);
+  line-height: 27px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Info rows, flat inside the card: label secondary, value primary, gap 12. */
+.mk .mk-home-card__specs { display: flex; flex-direction: column; gap: 12px; }
+.mk .mk-home-card__specs .mk-info-row {
+  min-height: 17px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+.mk .mk-home-card__specs .mk-info-row__label { color: var(--mk-text-2); }
+.mk .mk-home-card__specs .mk-info-row__value-wrap { min-width: 0; overflow: hidden; }
+.mk .mk-home-card__specs .mk-info-row__value { overflow: hidden; text-overflow: ellipsis; }
+
+.mk .mk-home-card__actions { display: flex; gap: 10px; }
+/* Figma "Link · Open": 45 high, r6, Mouse/Label-size text (14 Regular). */
+.mk .mk-home-card__open {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-radius: var(--mk-r-segment);
+  font-size: 14px;
+  line-height: 16.9px;
+  letter-spacing: -0.1px;
+}
+.mk .mk-home-card__remove { width: 45px; height: 45px; border-radius: var(--mk-r-segment); }
+
+/* Inline remove confirm (not in the design — kept behaviour). */
+.mk .mk-home-card__confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 25px;
+  text-align: center;
+  background: color-mix(in srgb, var(--mk-bg-card) 96%, transparent);
+}
+.mk .mk-home-card__confirm-title { margin: 0; color: var(--mk-text); }
+.mk .mk-home-card__confirm-sub { margin: 0; max-width: 290px; color: var(--mk-text-2); line-height: 20px; }
+.mk .mk-home-card__confirm-actions { display: flex; gap: 10px; margin-top: 10px; }
+
+/* ───────────── Add mouse card (dashed, bg/card @40%) ───────────── */
+.mk .mk-home-add {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px dashed var(--mk-border);
+  border-radius: var(--mk-r-card);
+  background: color-mix(in srgb, var(--mk-bg-card) 40%, transparent);
+  color: var(--mk-text);
+  text-align: center;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.mk .mk-home-add:not(:disabled):hover {
+  background: color-mix(in srgb, var(--mk-bg-card) 75%, transparent);
+  border-color: color-mix(in srgb, var(--mk-text) 14%, transparent);
+}
+.mk .mk-home-add:disabled { cursor: default; }
+.mk .mk-home-add:disabled .mk-home-plus,
+.mk .mk-home-add:disabled .mk-home-add__text { opacity: .4; }
+.mk .mk-home-add__art {
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  width: 590px;
+  max-width: none;
+  transform: translateX(-50%);
+  opacity: .4;
+  pointer-events: none;
+  user-select: none;
+}
+/* Green plus: 70 ring (bg/page, pad 3) around a 64 glowing core. */
+.mk .mk-home-plus {
+  position: absolute;
+  left: 50%;
+  top: 186px;
+  transform: translateX(-50%);
+  display: flex;
+  padding: 3px;
+  border-radius: var(--mk-r-pill);
+  background: var(--mk-bg-page);
+  box-shadow: 0 0 0 0.5px var(--mk-fill-subtle);
+}
+.mk .mk-home-plus__core {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--mk-r-pill);
+  color: var(--mk-text);
+  background:
+    radial-gradient(70% 70% at 50% 0%, color-mix(in srgb, var(--mk-accent) 55%, transparent), transparent 100%),
+    color-mix(in srgb, var(--mk-accent) 9%, var(--mk-bg-page));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--mk-accent) 35%, transparent),
+    inset 0 -1px 4px color-mix(in srgb, var(--mk-accent) 30%, transparent),
+    0 0 2px color-mix(in srgb, var(--mk-accent) 25%, transparent);
+}
+.mk .mk-home-add__text {
+  position: absolute;
+  left: 50%;
+  top: 332px;
+  transform: translateX(-50%);
+  width: 342px;
+  max-width: calc(100% - 20px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+.mk .mk-home-add__title { font: 500 16px/19.4px var(--mk-font); letter-spacing: -0.1px; color: var(--mk-text); }
+.mk .mk-home-add__sub { font: 400 15px/22px var(--mk-font); letter-spacing: -0.15px; color: var(--mk-text-2); }
+
+/* ───────────── Nothing connected ───────────── */
+.mk .mk-home-empty {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* Optical position from the reference (block starts ~52 from the top). */
+  padding-bottom: 88px;
+}
+.mk .mk-home-empty__art {
+  position: relative;
+  flex: 0 0 282px;
+  width: 560px;
+  max-width: 100%;
+  pointer-events: none;
+}
+.mk .mk-home-empty__art img {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 560px;
+  transform: translateX(-50%);
+  user-select: none;
+  /* Soften the art's baked shadow edge (the reference fades out). */
+  -webkit-mask-image: linear-gradient(180deg, var(--mk-text) 44%, transparent 57%);
+          mask-image: linear-gradient(180deg, var(--mk-text) 44%, transparent 57%);
+}
+.mk .mk-home-empty__text {
+  position: relative;
+  width: 414px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 17px;
+  text-align: center;
+}
+.mk .mk-home-empty__title { margin: 0; font: 500 22px/26.6px var(--mk-font); letter-spacing: -0.1px; color: var(--mk-text); }
+.mk .mk-home-empty__sub { margin: 0; font: 400 15px/22px var(--mk-font); color: var(--mk-text-2); }
+/* Call to action: a primary kit Button in the reference's glowing well. */
+.mk .mk-home-cta-well {
+  width: 366px;
+  max-width: 100%;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--mk-bg-track);
+  box-shadow: 0 0 0 0.5px var(--mk-fill-subtle);
+}
+.mk .mk-home-cta {
+  width: 100%;
+  height: 51px;
+  border-radius: 10px;
+  font-size: 18px;
+  line-height: 21.8px;
+  background:
+    radial-gradient(58% 112% at 50% -4%, color-mix(in srgb, var(--mk-accent) 50%, transparent), transparent 100%),
+    color-mix(in srgb, var(--mk-accent) 9%, var(--mk-bg-page));
+  box-shadow:
+    inset 0 0 0 0.7px color-mix(in srgb, var(--mk-accent) 45%, transparent),
+    inset 0 -1px 4px color-mix(in srgb, var(--mk-accent) 30%, transparent);
+}
+.mk .mk-home-cta .mk-button__icon { width: 18px; height: 18px; }
+.mk .mk-home-cta:not(:disabled):hover {
+  background:
+    radial-gradient(58% 112% at 50% -4%, color-mix(in srgb, var(--mk-accent) 62%, transparent), transparent 100%),
+    color-mix(in srgb, var(--mk-accent) 12%, var(--mk-bg-page));
+}
+
+/* Plain text links ("Having an issue?", "Mouse not showing up?"). */
+.mk .mk-home-link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mk-text-2);
+  transition: color .12s ease;
+}
+.mk .mk-home-link:hover { color: var(--mk-text); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ───────────── Quiet footer: Report a problem + AGPL attribution ───────────── */
+.mk .mk-home-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 15px;
+  padding: 0 5px;
+  color: var(--mk-text-3);
+  white-space: nowrap;
+}
+.mk .mk-home-foot__report { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mk .mk-home-foot__link,
+.mk .mk-home-foot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mk-text-2);
+  font: inherit;
+  text-decoration: none;
+  transition: color .12s ease;
+}
+.mk .mk-home-foot__link:hover, .mk .mk-home-foot a:hover { color: var(--mk-text); text-decoration: underline; text-underline-offset: 2px; }
+.mk .mk-home-foot__legal { flex: 0 0 auto; }
+
+/* ───────────── Popups (446 wide, pad 5, r14, bg/card) ───────────── */
+.mk .mk-modal {
+  width: 446px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  padding: 5px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--mk-bg-card);
+  color: var(--mk-text);
+  box-shadow: var(--mk-shadow-menu);
+  overflow: auto;
+}
+.mk .mk-modal:not([open]) { display: none; }
+.mk .mk-modal:focus, .mk .mk-modal:focus-visible { outline: none; }
+.mk .mk-modal::backdrop { background: color-mix(in srgb, var(--mk-bg-track) 75%, transparent); }
+.mk .mk-modal__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 0 20px 20px;
+  text-align: center;
+}
+.mk .mk-modal--connecting .mk-modal__inner { gap: 20px; }
+.mk .mk-modal__close {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mk-r-info);
+  background: none;
+  color: var(--mk-text);
+  opacity: .5;
+  transition: opacity .12s ease;
+}
+.mk .mk-modal__close:hover { opacity: .9; }
+.mk .mk-modal__art { display: block; width: 396px; max-width: 100%; height: 184px; object-fit: contain; user-select: none; }
+.mk .mk-modal__title { margin: 0; font: 500 18px/21.8px var(--mk-font); letter-spacing: 0; color: var(--mk-text); }
+.mk .mk-modal__body {
+  margin: 0;
+  max-width: 338px;
+  font: 400 16px/24px var(--mk-font);
+  letter-spacing: -0.16px;
+  color: color-mix(in srgb, var(--mk-text) 75%, transparent);
+  /* Figma sets this in Inter (text cut), not Display: match its wrapping. */
+  font-variation-settings: "opsz" 14;
+}
+.mk .mk-modal__action { width: 100%; border-radius: var(--mk-r-row); }
+.mk .mk-modal__action .mk-button__icon { color: var(--mk-text); }
+
+/* Connecting ("Add a mouse") */
+.mk .mk-modal__head { display: flex; flex-direction: column; align-items: center; gap: 15px; padding-top: 25px; max-width: 296px; }
+.mk .mk-modal__lede { margin: 0; font: 400 16px/24px var(--mk-font); color: color-mix(in srgb, var(--mk-text) 75%, transparent); }
+.mk .mk-modal__picker { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
+.mk .mk-modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-height: 262px;
+  overflow-y: auto;
+}
+.mk .mk-modal__row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-height: 58px;
+  padding: 4px 12px 4px 4px;
+  border-radius: var(--mk-r-row);
+  background: var(--mk-bg-raised);
+  text-align: left;
+}
+.mk .mk-modal__thumb {
+  flex: 0 0 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: var(--mk-r-segment);
+  background: var(--mk-bg-page);
+  overflow: hidden;
+}
+.mk .mk-modal__thumb img { max-width: 40px; max-height: 42px; object-fit: contain; }
+.mk .mk-modal__row-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mk .mk-modal__row-name { color: var(--mk-text); line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk .mk-modal__row-detail { color: var(--mk-text-2); line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk .mk-modal__row-add { flex: 0 0 auto; border-radius: var(--mk-r-segment); padding: 0 16px; }
+.mk .mk-modal__spinner,
+.mk .mk-pending__spinner {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--mk-bg-control-hover);
+  border-top-color: var(--mk-accent);
+  animation: mk-home-spin .9s linear infinite;
+}
+.mk .mk-pending__spinner { width: 14px; height: 14px; }
+@keyframes mk-home-spin { to { transform: rotate(360deg); } }
+
+/* ───────────── Tools Hub (2×2 tiles, 590×332, pad 15, r12) ───────────── */
+.mk .mk-hub {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 1210px;
+  margin: 0 auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  background: var(--mk-bg-page);
+  overflow: auto;
+}
+.mk .mk-hub__grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(302px, 1fr));
+  gap: 10px;
+}
+.mk .mk-hub__tile {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px;
+  border-radius: 12px;
+  background: var(--mk-bg-card);
+  overflow: hidden;
+}
+.mk .mk-hub__head { flex: 0 0 29px; display: flex; align-items: flex-start; gap: 5px; }
+.mk .mk-hub__name { color: var(--mk-text); line-height: 19px; }
+.mk .mk-hub__help { display: flex; padding: 1px 0 0; margin-left: -3px; color: var(--mk-text-3); }
+.mk .mk-hub__new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 19px;
+  border-radius: 9.5px;
+  background: color-mix(in srgb, var(--mk-accent) 14%, transparent);
+  color: var(--mk-accent);
+  font: 500 10px/12.1px var(--mk-font);
+  letter-spacing: 0.6px;
+}
+.mk .mk-hub__art {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.mk .mk-hub__art img { display: block; width: 100%; max-width: 560px; height: 100%; max-height: 200px; object-fit: contain; user-select: none; }
+.mk .mk-hub__open { width: 100%; border-radius: var(--mk-r-row); }
+.mk .mk-hub__tile.is-soon .mk-hub__open { opacity: .2; }
+
+/* ───────────── Pending-changes bar (integrated; kit Buttons + Status pill) ───────────── */
+.mk .mk-pending {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: calc(100% - 20px);
+  max-width: 1190px;
+  min-height: 55px;
+  margin: 0 auto 10px;
+  padding: 10px 10px 10px 15px;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+  box-shadow: inset 0 0 0 1px var(--mk-border);
+  color: var(--mk-text);
+}
+.mk .mk-pending.is-error { box-shadow: inset 0 0 0 1px var(--mk-danger-border); }
+.mk .mk-pending__status { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; }
+.mk .mk-pending__detail { min-width: 0; color: var(--mk-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk .mk-pending.is-error .mk-pending__detail { color: var(--mk-danger); }
+.mk .mk-pending__actions { flex: 0 0 auto; display: flex; gap: 10px; }
+.mk .mk-pending__done-icon { flex: 0 0 auto; display: flex; padding-right: 8px; color: var(--mk-accent); }
+.mk .mk-pending.is-done { animation: mk-pending-done 2.6s ease forwards; }
+@keyframes mk-pending-done { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+.mk.reduce-interface-motion .mk-modal__spinner,
+.mk.reduce-interface-motion .mk-pending__spinner,
+.mk.reduce-interface-motion .mk-pending.is-done { animation: none; }
+
+
+/* Nodes the reference sets in Inter Display (opsz 32). `font:` shorthands reset
+   the optical size .mk sets, so re-assert it where the design uses Display. */
+.mk .mk-home-add__title, .mk .mk-home-add__sub, .mk .mk-home-cta,
+.mk .mk-modal__title, .mk .mk-modal__lede, .mk .mk-modal__action,
+.mk .mk-hub__name, .mk .mk-hub__open { font-variation-settings: "opsz" 32; }

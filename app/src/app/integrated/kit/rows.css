@@ -1,0 +1,284 @@
+/* Mouse Component System — rows group styles (scoped under .mk).
+   Geometry from scratch-figma/specs: setting-row, section-header, color-picker, zone-picker,
+   zone-swatch, slider-row, collapsible-section. */
+
+/* The one effect the Mouse UI tokens don't cover: the Color picker handle's drop shadow
+   (Figma DROP_SHADOW r3, y1, #000 @50%). Kept as a local var so components stay literal-free. */
+.mk { --mk-shadow-handle: 0 1px 3px rgba(0, 0, 0, 0.5); }
+
+/* ───────── Setting row ───────── */
+
+.mk .mk-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 10px 10px 15px;
+  border-radius: var(--mk-r-row);
+  background: var(--mk-bg-card);
+}
+.mk .mk-setting-row.is-disabled { opacity: 0.4; }
+/* The row is faded once: cancel the control's own Disabled fade inside a disabled row. */
+.mk .mk-setting-row.is-disabled .mk-setting-row__control .is-disabled { opacity: 1; }
+.mk .mk-setting-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.mk .mk-setting-row__title { color: var(--mk-text); }
+.mk .mk-setting-row__desc { color: var(--mk-text-2); }
+.mk .mk-setting-row__control {
+  flex: 0 0 var(--mk-control-w);
+  width: var(--mk-control-w);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+}
+.mk .mk-setting-row__control.is-hug { flex: 0 0 auto; width: auto; align-items: flex-end; }
+.mk .mk-setting-value { color: var(--mk-text-2); white-space: nowrap; }
+
+/* ───────── Section header + Setting group ───────── */
+
+.mk .mk-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 0 4px 10px;
+}
+.mk .mk-section-header__text { display: flex; flex-direction: column; gap: 5px; flex: 1 1 0; min-width: 0; }
+.mk .mk-section-header__title-row { display: flex; align-items: center; gap: 10px; }
+.mk .mk-section-header__title { margin: 0; color: var(--mk-text); }
+.mk .mk-section-header__desc { margin: 0; color: var(--mk-text-2); }
+.mk .mk-section-header__action { flex: 0 0 auto; display: flex; }
+
+.mk .mk-setting-group { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.mk .mk-setting-group.is-dense { gap: 5px; }
+
+/* ───────── Color picker ───────── */
+
+.mk .mk-cp { display: flex; flex-direction: column; gap: 12px; }
+.mk .mk-cp.is-disabled { opacity: 0.4; }
+.mk .mk-cp.is-disabled .mk-slider.is-disabled { opacity: 1; }
+.mk .mk-cp--full {
+  width: 300px;
+  padding: 12px;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+}
+.mk .mk-cp--compact {
+  width: 100%;
+  padding: 10px 10px 10px 16px;
+  border-radius: var(--mk-r-row);
+  background: var(--mk-bg-soft);
+}
+
+/* Saturation (x) / value (y) plane: hue base + white→clear (left→right) + clear→black (top→bottom). */
+.mk .mk-cp__plane {
+  position: relative;
+  flex: none;
+  width: 100%;
+  height: 150px;
+  border-radius: var(--mk-r-segment);
+  background:
+    linear-gradient(to bottom, transparent, black),
+    linear-gradient(to right, white, transparent),
+    var(--cp-hue);
+  cursor: crosshair;
+  touch-action: none;
+  --cp-x: 1;
+  --cp-y: 0;
+}
+.mk .mk-cp.is-disabled .mk-cp__plane { cursor: default; }
+/* Handle: 14×14 ellipse, 2px centred white stroke → 16 outer. */
+.mk .mk-cp__handle {
+  position: absolute;
+  left: calc(var(--cp-x) * 100% - 8px);
+  top: calc(var(--cp-y) * 100% - 8px);
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--mk-text);
+  border-radius: 50%;
+  box-shadow: var(--mk-shadow-handle);
+  pointer-events: none;
+}
+.mk .mk-cp__plane:focus-visible { outline-offset: 2px; }
+
+/* Hue slider inside the picker: Figma scales the Slider instance, so the thumb is 19 wide in Full
+   (276 track) and 26 wide in Compact (381 track) instead of the Slider's 28. Lines stay centred. */
+.mk .mk-cp .mk-slider__grip { justify-content: center; padding-left: 0; }
+.mk .mk-cp--full .mk-slider__thumb { width: 19px; }
+.mk .mk-cp--full .mk-slider__travel { right: 19px; }
+.mk .mk-cp--full .mk-slider__input::-webkit-slider-thumb { width: 19px; }
+.mk .mk-cp--full .mk-slider__input::-moz-range-thumb { width: 19px; }
+.mk .mk-cp--compact .mk-slider__thumb { width: 26px; }
+.mk .mk-cp--compact .mk-slider__travel { right: 26px; }
+.mk .mk-cp--compact .mk-slider__input::-webkit-slider-thumb { width: 26px; }
+.mk .mk-cp--compact .mk-slider__input::-moz-range-thumb { width: 26px; }
+
+.mk .mk-cp__hex-row { display: flex; align-items: center; gap: 8px; }
+.mk .mk-cp__hex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 29px;
+  padding: 0 10px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+  cursor: text;
+}
+.mk .mk-cp--full .mk-cp__hex { flex: 1 1 0; min-width: 0; }
+.mk .mk-cp--compact .mk-cp__hex { flex: 0 0 108px; width: 108px; }
+.mk .mk-cp__hex:focus-within { box-shadow: inset 0 0 0 1px var(--mk-accent-border); }
+.mk .mk-cp__hex.is-invalid { box-shadow: inset 0 0 0 1px var(--mk-danger-border); }
+.mk .mk-cp__dot { flex: 0 0 11px; width: 11px; height: 11px; border-radius: 50%; }
+.mk .mk-cp__hex-box { display: inline-grid; min-width: 0; }
+.mk .mk-cp__hex-sizer,
+.mk .mk-cp__hex-input { grid-area: 1 / 1; }
+.mk .mk-cp__hex-sizer { visibility: hidden; white-space: pre; }
+.mk .mk-cp__hex-input {
+  width: 0;          /* contribute nothing to the grid track; the sizer span sets the width */
+  min-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--mk-text);
+  text-transform: uppercase;
+}
+.mk .mk-cp__hex-input:focus-visible { outline: none; }
+.mk .mk-icon-button.mk-cp__copy { width: 29px; height: 29px; }
+
+.mk .mk-cp__presets { display: flex; gap: 10px; }
+.mk .mk-cp__preset {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  transition: filter 120ms ease;
+}
+.mk .mk-cp__preset:hover:not(:disabled) { filter: brightness(1.12); }
+
+.mk .mk-cp__main { display: flex; align-items: center; gap: 20px; }
+.mk .mk-cp__main > .mk-slider { flex: 1 1 0; min-width: 0; }
+.mk .mk-cp__label { display: flex; align-items: center; gap: 10px; flex: 0 0 110px; width: 110px; color: var(--mk-text); }
+.mk .mk-cp__label-icon { flex: none; opacity: 0.5; }
+
+/* Popover (Full layout as a floating panel) */
+.mk-cp-layer { position: fixed; top: 0; left: 0; width: 0; height: 0; z-index: 1000; }
+.mk .mk-cp-pop { position: fixed; border-radius: var(--mk-r-card); box-shadow: var(--mk-shadow-menu); }
+
+/* ───────── Zone swatch + Zone picker ───────── */
+
+.mk .mk-zone-picker {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+}
+.mk .mk-zone-picker.is-disabled { opacity: 0.4; }
+.mk .mk-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 84px;
+  width: 84px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mk-text-muted);
+}
+.mk .mk-zone__ring {
+  display: flex;
+  width: 100%;
+  height: 44px;
+  /* Figma: 3px padding inside a 1px INSIDE stroke (1.5px when selected). Drawn as an inset shadow —
+     Chrome floors fractional border widths, which would thin the 1.5px selected ring to 1px. */
+  padding: 4px;
+  border-radius: var(--mk-r-tab);
+  box-shadow: inset 0 0 0 1px var(--mk-border);
+  transition: box-shadow 120ms ease;
+}
+.mk .mk-zone.is-selected .mk-zone__ring { padding: 4.5px; box-shadow: inset 0 0 0 1.5px var(--mk-accent); }
+.mk .mk-zone:hover:not(:disabled):not(.is-selected) .mk-zone__ring { box-shadow: inset 0 0 0 1px var(--mk-text-3); }
+.mk .mk-zone__color {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  border-radius: 7px;
+}
+.mk .mk-zone__color.is-off { background: var(--mk-bg-control); color: var(--mk-text); }
+.mk .mk-zone__off-icon { opacity: 0.5; }
+.mk .mk-zone__label { color: var(--mk-text-muted); white-space: nowrap; }
+.mk .mk-zone.is-selected .mk-zone__label { color: var(--mk-text); }
+.mk .mk-zone:focus-visible { outline: none; }
+.mk .mk-zone:focus-visible .mk-zone__ring { outline: 2px solid var(--mk-accent-border); outline-offset: 2px; }
+
+/* ───────── Slider row ───────── */
+
+.mk .mk-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  padding: 10px 10px 10px 16px;
+  border-radius: var(--mk-r-row);
+  background: var(--mk-bg-soft);
+}
+.mk .mk-slider-row.is-disabled { opacity: 0.4; }
+.mk .mk-slider-row.is-disabled .mk-slider.is-disabled { opacity: 1; }
+.mk .mk-slider-row > .mk-slider { flex: 1 1 0; min-width: 0; }
+.mk .mk-slider-row__label { display: flex; align-items: center; gap: 10px; flex: 0 0 110px; width: 110px; min-width: 0; color: var(--mk-text); }
+.mk .mk-slider-row__icon { flex: none; opacity: 0.5; }
+.mk .mk-slider-row__value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 96px;
+  width: 96px;
+  height: 29px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+  color: var(--mk-text);
+  white-space: nowrap;
+}
+
+/* ───────── Collapsible section ───────── */
+
+.mk .mk-collapsible { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+.mk .mk-collapsible__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px 10px 10px;
+  border: 0;
+  border-radius: var(--mk-r-row);
+  background: var(--mk-bg-card);
+  color: var(--mk-text);
+  text-align: left;
+  transition: background-color 120ms ease;
+}
+.mk .mk-collapsible__header:hover { background: var(--mk-bg-raised); }
+.mk .mk-collapsible__chevron { flex: none; opacity: 0.6; }
+.mk .mk-collapsible__title { color: var(--mk-text); white-space: nowrap; }
+.mk .mk-collapsible__spacer { flex: 1 1 0; min-width: 0; }
+.mk .mk-collapsible__summary { color: var(--mk-text-2); white-space: nowrap; }
+.mk .mk-collapsible__content { display: flex; flex-direction: column; gap: 5px; }
+.mk .mk-collapsible__content[hidden] { display: none; }

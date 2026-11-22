@@ -1,0 +1,155 @@
+/* Profiles tab (sections/ProfilesSection.tsx + sections/profiles/*). Scoped under .mk, tokens only.
+   References: scratch-figma/profiles-onboard.png, scratch-figma/profiles-app.png. */
+
+/* ───────── Onboard: cards + editor (FullLayout scrolls) ───────── */
+
+.mk .mk-pf-onboard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Profile cards across the 1190 content width, up to 4 per row (4 × 290 + 3 × 10). */
+.mk .mk-pf-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+.mk .mk-pf-cards > .mk-profile-card { width: auto; min-width: 0; }
+/* One row of cards takes the reference height (Card · 290×450): footer at the bottom. */
+.mk .mk-pf-cards.is-one-row > .mk-profile-card { min-height: 450px; }
+/* The screen spaces the name and the summary 30 apart (Frame 2147262102 gap 30). */
+.mk .mk-pf-cards .mk-profile-card__body { gap: 30px; }
+/* Layers, banks and host mode have no stored name to edit: no pencil. */
+.mk .mk-pf-cards .mk-profile-card__rename.is-static { visibility: hidden; }
+
+/* Editor under the cards: a gap that reads as a new block, then the columns. */
+.mk .mk-pf-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 10px;
+  scroll-margin-top: 0;
+}
+.mk .mk-pf-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 665px) minmax(0, 1fr);
+  gap: 25px;
+  align-items: start;
+}
+.mk .mk-pf-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mk .mk-pf-actions { display: flex; align-items: center; gap: 10px; }
+.mk .mk-pf-inline { display: flex; align-items: center; gap: 15px; }
+.mk .mk-pf-fill { display: flex; flex: 1 1 auto; min-width: 0; }
+
+/* A caption under a group (aligned with Section header text). */
+.mk .mk-pf-note {
+  margin: 0;
+  padding: 0 10px;
+  color: var(--mk-text-2);
+}
+
+/* ───────── In app: Current Settings panel (Figma "Diagnostic log" frame: 665, pad 10, gap 10, r9) ───────── */
+
+.mk .mk-pf-current {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+  min-width: 0;
+}
+.mk .mk-pf-current__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 40px;
+  padding-left: 10px;
+}
+.mk .mk-pf-current__title { margin: 0; color: var(--mk-text); line-height: 19px; white-space: nowrap; }
+.mk .mk-pf-current__rows { display: flex; flex-direction: column; gap: 5px; }
+
+/* Saved Profiles: the reference heading sits in a 39-high frame (pad 10/0/10/10) with
+   10 to the rows, and Apply is a wide 186 button. */
+.mk .mk-pf-saved { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.mk .mk-pf-saved > .mk-profile-list > .mk-list-header { padding-top: 10px; padding-bottom: 10px; margin-bottom: 5px; }
+.mk .mk-pf-saved .mk-profile-row__actions > .mk-button { min-width: 186px; font-size: 16px; line-height: 19.4px; }
+
+/* ───────── Keyboard-shortcut recorder (modal; awaiting Ivan's design) ───────── */
+
+.mk.mk-pf-modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: color-mix(in srgb, var(--mk-bg-page) 72%, transparent);
+}
+.mk .mk-pf-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 440px;
+  max-width: 100%;
+  padding: 20px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-r-modal);
+  background: var(--mk-bg-card);
+  box-shadow: var(--mk-shadow-menu);
+  outline: none;
+}
+.mk .mk-pf-modal__head { display: flex; flex-direction: column; gap: 6px; }
+.mk .mk-pf-modal__kicker { color: var(--mk-text-3); }
+.mk .mk-pf-modal__title { margin: 0; color: var(--mk-text); }
+.mk .mk-pf-modal__body { margin: 0; color: var(--mk-text-2); }
+.mk .mk-pf-modal__record { align-self: flex-start; }
+.mk .mk-pf-modal__error { margin: 0; color: var(--mk-danger); }
+.mk .mk-pf-modal__note { margin: 0; color: var(--mk-text-2); }
+.mk .mk-pf-modal__actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+.mk .mk-pf-capture {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  padding: 12px 14px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-bg-page);
+}
+.mk .mk-pf-capture.is-recording { box-shadow: inset 0 0 0 1px var(--mk-accent-border); }
+.mk .mk-pf-capture__empty { color: var(--mk-text-muted); }
+.mk .mk-pf-capture.is-recording .mk-pf-capture__empty { color: var(--mk-accent); }
+.mk .mk-pf-capture__steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mk .mk-pf-capture__step { display: flex; align-items: center; gap: 8px; }
+.mk .mk-pf-capture__delay { color: var(--mk-text-3); }
+.mk .mk-pf-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 29px;
+  padding: 0 10px;
+  border-radius: var(--mk-r-segment);
+  background: var(--mk-bg-control);
+  color: var(--mk-text);
+  font-family: inherit;
+  white-space: nowrap;
+}

@@ -782,6 +782,8 @@ function stageChange(change: PendingChange): void {
     setReadStatus(st("ctl.alreadyMatches", { label: change.label }));
     return;
   }
+  // A fresh edit replaces any earlier failed apply's message.
+  pendingStatusText = null;
   stagePendingChange(change);
   if (interfacePreferences.instantFlash) {
     queueInstantFlash();
@@ -821,6 +823,9 @@ function matchesDeviceStatus(change: PendingChange): boolean {
 export function revertPendingChanges(): void {
   if (settingInProgress || !hasPendingChanges()) return;
   clearPendingChanges();
+  // The failure text described the set just thrown away — don't let it
+  // resurface on the next, unrelated change.
+  pendingStatusText = null;
   setReadStatus(st("ctl.discarded"));
 }
 
@@ -2114,6 +2119,7 @@ async function activateClientNow(client: SupportedClient): Promise<void> {
   }
   if (active && active !== client) await active.close().catch(() => undefined);
   clearPendingChanges();
+  pendingStatusText = null;
   latestDeviceStatus = null;
   clearActiveClients();
   if (activeDevice !== client.device) {
@@ -2233,6 +2239,7 @@ function showDisconnectedState(): void {
   lastRenderedStatusKey = null;
   capabilities = null;
   clearPendingChanges();
+  pendingStatusText = null;
   latestDeviceStatus = null;
   buttons = null;
   clearNapeKeymaps();
@@ -4781,7 +4788,7 @@ function showG703PreviewProfiles(): void {
 async function showFixturePreview(name: PreviewMode): Promise<void> {
   const { PREVIEW_FIXTURES } = await import("../preview-fixtures");
   await loadPreviewEntries();
-  const fixture = name === "list" || name === "slots" || name === "superstrike"
+  const fixture = name === "list" || name === "slots" || name === "superstrike" || name === "grid"
     ? undefined
     : PREVIEW_FIXTURES[name];
   if (!fixture) {
@@ -4791,8 +4798,9 @@ async function showFixturePreview(name: PreviewMode): Promise<void> {
   }
   dpiOptions = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 32000];
   if (name === "g703") showG703PreviewProfiles();
-  // Populate brand capabilities so preview cards that gate on capabilities still render.
-  capabilities = readCapabilities();
+  // Populate brand capabilities so preview cards that gate on capabilities still render;
+  // a fixture can add what its real client would publish (option lists etc.).
+  capabilities = { ...readCapabilities(), ...fixture.capabilities };
   applyStatus(fixture.status);
   // Logitech controls aren't part of MouseStatus, so a Logitech fixture carries
   // them separately; seed the live map so the Buttons screen renders in preview.
@@ -4842,13 +4850,26 @@ export function start(): void {
     showSlotsPreview();
     deviceListView = "device";
     emit();
-  } else if (previewMode !== null && previewMode !== "list") {
+  } else if (previewMode !== null && previewMode !== "list" && previewMode !== "grid") {
     void showFixturePreview(previewMode).then(() => {
       if (latestDeviceStatus !== null) deviceListView = "device";
       emit();
     });
   } else if (previewMode === "list") {
     void showFixturePreview("list");
+  } else if (previewMode === "grid") {
+    // Device grid with several mice (dev preview of the Home screen): the
+    // Pulsar fixture is the active, read device; the others are listed as
+    // authorized-but-not-open, exactly like real extra mice in the picker.
+    void showFixturePreview("pulsar").then(() => {
+      sidebarDevices = [
+        { index: 0, key: "13652:62738:Pulsar X2 V2", name: "Pulsar X2 V2", detail: "Pulsar · Wireless", selected: true, vendorId: 0x3554, productId: 0xf512, kind: "mouse" },
+        { index: 1, key: "1133:49304:G502 X PLUS", name: "G502 X PLUS", detail: "Logitech · Wireless", selected: false, vendorId: 0x046d, productId: 0xc098, kind: "mouse" },
+        { index: 2, key: "5426:192:Viper V3 Pro", name: "Viper V3 Pro", detail: "Razer · Wired", selected: false, vendorId: 0x1532, productId: 0x00c0, kind: "mouse" },
+      ];
+      deviceListView = "list";
+      emit();
+    });
   }
 
   if (!isAnyPreview) {

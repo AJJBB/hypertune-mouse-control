@@ -1,0 +1,338 @@
+/* Mouse Component System — display group. Geometry from scratch-figma/specs. */
+
+/* ───────────── Readout tile (325×132, pad 17/48, gap 6, r4) ───────────── */
+.mk .mk-readout {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 132px;
+  padding: 17px 48px;
+  border-radius: 4px;
+}
+/* Glow: two rotated blob vectors, accent @17 %, layer blur 136 (≈ CSS 68). */
+.mk .mk-readout__glow {
+  position: absolute;
+  top: 0;
+  width: 264px;
+  height: 325px;
+  transform-origin: 0 0;
+  filter: blur(68px);
+  opacity: 0.17;
+  pointer-events: none;
+  z-index: -1;
+}
+.mk .mk-readout__glow > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--mk-accent);
+  clip-path: path("M98.749 0.142602C131.735 1.50875 158.012 24.5165 185.348 43.058C213.755 62.3265 249.572 77.2241 260.44 109.816C271.327 142.469 255.106 177.394 240.536 208.573C227.476 236.521 205.974 257.83 182.136 277.381C156.778 298.179 131.439 327.24 98.749 324.863C66.2387 322.498 43.3987 291.885 23.72 265.859C8.24236 245.39 2.44991 220.084 0.182667 194.508C-1.67135 173.594 11.1785 155.199 12.0505 134.22C13.4511 100.525 -11.5187 63.9698 6.78544 35.6628C25.0929 7.35065 65.0984 -1.25105 98.749 0.142602Z");
+}
+.mk .mk-readout__glow--left {
+  left: 0;
+  transform: matrix(-0.57816, 0.81592, -0.81592, -0.57816, 175.81, 178.9);
+}
+.mk .mk-readout__glow--right {
+  left: 100%;
+  transform: matrix(0.53677, 0.84373, -0.84373, 0.53677, 29.21, 7);
+}
+/* Ruler: ticks (accent @34 %) + gradient baseline, both under the blurred
+   ellipse mask of Figma "Group 134" (fades the right end, softens the left). */
+.mk .mk-readout__ruler {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 12px;
+  pointer-events: none;
+  z-index: -1;
+  -webkit-mask-image: linear-gradient(90deg,
+    rgb(0 0 0 / 0.4) 0%, rgb(0 0 0 / 0.52) 3%, rgb(0 0 0 / 0.8) 12.3%, rgb(0 0 0 / 0.93) 24.6%,
+    rgb(0 0 0) 43%, rgb(0 0 0 / 0.95) 61.5%, rgb(0 0 0 / 0.74) 73.8%, rgb(0 0 0 / 0.57) 80%,
+    rgb(0 0 0 / 0.29) 86%, rgb(0 0 0 / 0.09) 92.3%, rgb(0 0 0 / 0.03) 98.5%);
+  mask-image: linear-gradient(90deg,
+    rgb(0 0 0 / 0.4) 0%, rgb(0 0 0 / 0.52) 3%, rgb(0 0 0 / 0.8) 12.3%, rgb(0 0 0 / 0.93) 24.6%,
+    rgb(0 0 0) 43%, rgb(0 0 0 / 0.95) 61.5%, rgb(0 0 0 / 0.74) 73.8%, rgb(0 0 0 / 0.57) 80%,
+    rgb(0 0 0 / 0.29) 86%, rgb(0 0 0 / 0.09) 92.3%, rgb(0 0 0 / 0.03) 98.5%);
+}
+.mk .mk-readout__ticks {
+  position: absolute;
+  /* 372-wide strip starting 48 left of a 325 tile → scales with the tile */
+  left: -14.769%;
+  width: 114.462%;
+  bottom: 0.5px;
+  height: 11px;
+  overflow: visible;
+  opacity: 0.34;
+}
+.mk .mk-readout__ticks line { stroke: var(--mk-accent); stroke-width: 1; }
+.mk .mk-readout__baseline {
+  position: absolute;
+  left: -14.769%;
+  width: 114.462%;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--mk-accent) 14%, var(--mk-accent) 87%, transparent 100%);
+}
+.mk .mk-readout__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.mk .mk-readout__label-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 18px;
+  white-space: nowrap;
+}
+.mk .mk-readout__icon { flex: none; color: var(--mk-text); opacity: 0.5; }
+.mk .mk-readout__value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+.mk .mk-readout__value { color: var(--mk-text); }
+.mk .mk-readout__unit { color: var(--mk-text-3); }
+/* Prev / next (Performance DPI tile): 58×58, r4, bg/control, accent glyph. */
+.mk .mk-readout__arrow {
+  position: absolute;
+  top: 50%;
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mk-bg-control);
+  color: var(--mk-accent);
+  z-index: 1;
+}
+.mk .mk-readout__arrow--prev { left: 32px; }
+.mk .mk-readout__arrow--next { right: 32px; }
+.mk .mk-readout__arrow:hover:not(:disabled) { background: var(--mk-bg-control-hover); }
+.mk .mk-readout__arrow:disabled { opacity: 0.4; }
+
+/* ───────────── Section header inside panels (pad 4/0/4/10, 27 high) ───────────── */
+.mk .mk-display-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0 4px 10px;
+}
+.mk .mk-display-header__title { margin: 0; color: var(--mk-text); }
+
+/* ───────────── Status panel / Device info list (gap 10) ───────────── */
+.mk .mk-status-panel,
+.mk .mk-device-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.mk .mk-status-panel__tiles {
+  display: flex;
+  gap: 10px;
+}
+
+/* ───────────── Info row (660×40, pad 5/15, r4, bg/card) ───────────── */
+.mk .mk-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 40px;
+  padding: 5px 15px;
+  border-radius: var(--mk-r-info);
+  background: var(--mk-bg-card);
+}
+.mk .mk-info-row__label { color: var(--mk-text-muted); white-space: nowrap; }
+.mk .mk-info-row__value-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.mk .mk-info-row__icon { display: flex; flex: none; width: 18px; height: 18px; }
+.mk .mk-info-row__value { color: var(--mk-text); }
+.mk .mk-info-row__secondary { color: var(--mk-text-muted); }
+
+/* ───────────── Signal strength (pill 26 high, pad 4/12, gap 7) ───────────── */
+.mk .mk-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 4px 12px;
+  border-radius: var(--mk-r-pill);
+  background: var(--mk-bg-pill);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.mk .mk-signal__bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
+.mk .mk-signal__bar { width: 3px; border-radius: 2px; background: var(--mk-text-3); }
+.mk .mk-signal__level { color: var(--mk-text-muted); }
+.mk .mk-signal__word { color: var(--mk-text-2); }
+.mk .mk-signal--error .mk-signal__bar.is-on { background: var(--mk-danger); }
+.mk .mk-signal--warning .mk-signal__bar.is-on { background: var(--mk-warning); }
+.mk .mk-signal--ok .mk-signal__bar.is-on { background: var(--mk-accent); }
+.mk .mk-signal--error .mk-signal__level { color: var(--mk-danger); }
+.mk .mk-signal--warning .mk-signal__level { color: var(--mk-warning); }
+.mk .mk-signal--ok .mk-signal__level { color: var(--mk-accent); }
+
+/* ───────────── Signal chart (665, pad-top 10, gap 10) ───────────── */
+.mk .mk-signal-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  min-width: 0;
+}
+.mk .mk-signal-chart__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-left: 10px;
+}
+.mk .mk-signal-chart__heading { display: flex; flex-direction: column; gap: 5px; }
+.mk .mk-signal-chart__title { margin: 0; color: var(--mk-text); }
+.mk .mk-signal-chart__value { color: var(--mk-accent); }
+.mk .mk-signal-chart__plot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 15px 10px;
+}
+.mk .mk-signal-chart__chart { display: block; width: 100%; height: 96px; overflow: hidden; }
+.mk .mk-signal-chart__stop-top { stop-color: var(--mk-accent); stop-opacity: 0.22; }
+.mk .mk-signal-chart__stop-bottom { stop-color: var(--mk-accent); stop-opacity: 0; }
+.mk .mk-signal-chart__line {
+  fill: none;
+  stroke: var(--mk-accent);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.mk .mk-signal-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--mk-text-3);
+}
+
+/* ───────────── Diagnostics (card 665, pad 10, gap 10, r9) ───────────── */
+.mk .mk-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--mk-r-card);
+  background: var(--mk-bg-card);
+  min-width: 0;
+}
+.mk .mk-diagnostics__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 40px;
+  padding-left: 10px;
+}
+.mk .mk-diagnostics__title { margin: 0; color: var(--mk-text); }
+.mk .mk-diagnostics__rows { display: flex; flex-direction: column; gap: 5px; }
+
+/* Diagnostic row: 33 high, pad 8/10, r4, bg/raised */
+.mk .mk-diag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--mk-r-info);
+  background: var(--mk-bg-raised);
+}
+.mk .mk-diag-row__label { color: var(--mk-text-2); white-space: nowrap; }
+.mk .mk-diag-row__value-wrap { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.mk .mk-diag-row__dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.mk .mk-diag-row--neutral .mk-diag-row__value-wrap { color: var(--mk-text); }
+.mk .mk-diag-row--ok .mk-diag-row__value-wrap { color: var(--mk-accent); }
+.mk .mk-diag-row--warning .mk-diag-row__value-wrap { color: var(--mk-warning); }
+.mk .mk-diag-row--error .mk-diag-row__value-wrap { color: var(--mk-danger); }
+
+/* ───────────── Stat tile (140×66, pad 10/14, gap 4, r8) ───────────── */
+.mk .mk-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 14px;
+  border-radius: var(--mk-r-control);
+  background: var(--mk-fill-subtle);
+}
+.mk .mk-stat__label { color: var(--mk-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk .mk-stat__value { color: var(--mk-text-2); white-space: nowrap; }
+.mk .mk-stat--counted .mk-stat__value { color: var(--mk-text); }
+.mk .mk-stat--active { background: var(--mk-bg-raised); }
+.mk .mk-stat--active .mk-stat__value { color: var(--mk-accent); }
+
+/* ───────────── Button tester (780×137, gap 20) ───────────── */
+.mk .mk-tester {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.mk .mk-tester__col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.mk .mk-tester__pair { display: flex; gap: 5px; }
+.mk .mk-tester__pair > .mk-stat { flex: 1 1 0; }
+.mk .mk-tester__mouse {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 135px;
+}
+.mk .mk-tester__art { color: var(--mk-text); opacity: 0.35; }
+.mk .mk-tester__scroll.mk-stat--active { background: var(--mk-bg-raised); }
+.mk .mk-tester__dirs { display: flex; align-items: center; gap: 15px; height: 27px; }
+.mk .mk-tester__dir {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--mk-text-2);
+}
+.mk .mk-tester__dir-icon { flex: none; color: var(--mk-text); opacity: 0.6; }
+.mk .mk-tester__dir.is-counted { color: var(--mk-text); }
+.mk .mk-tester__dir.is-active { color: var(--mk-accent); }
+
+/* Figma rounds every text box to whole pixels (16.9 → 17, 19.4 → 19,
+   14.5 → 15, 26.6 → 27, 21.8 → 22, 50.8 → 51, 13.3 → 13); match the boxes so
+   stacked heights (66-high stat tiles, 33-high diagnostic rows…) come out exact. */
+.mk .mk-readout__label-row > span,
+.mk .mk-info-row__label, .mk .mk-info-row__value, .mk .mk-info-row__secondary,
+.mk .mk-diag-row__label, .mk .mk-diag-row__value { line-height: 17px; }
+.mk .mk-readout__value { line-height: 51px; }
+.mk .mk-readout__unit, .mk .mk-signal-chart__value { line-height: 22px; }
+.mk .mk-display-header__title, .mk .mk-signal-chart__title, .mk .mk-diagnostics__title { line-height: 19px; }
+.mk .mk-stat__label, .mk .mk-signal__level, .mk .mk-signal__word { line-height: 15px; }
+.mk .mk-stat__value, .mk .mk-tester__dir .mk-t-heading22 { line-height: 27px; }
+.mk .mk-signal-chart__axis { line-height: 13px; }

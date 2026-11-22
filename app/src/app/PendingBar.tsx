@@ -2,8 +2,16 @@ import type { ReactNode } from "react";
 import * as control from "../device/controller";
 import type { ControlSnapshot } from "../device/types";
 import { t } from "../i18n";
+import { isIntegratedMode } from "../app-mode";
+import { PendingBarV2 } from "./integrated/PendingBarV2";
 
 export function PendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
+  // Integrated HyperTune shell (?app=1): the kit-built bar (integrated/PendingBarV2).
+  if (isIntegratedMode()) return <PendingBarV2 snapshot={snapshot} />;
+  return <WebPendingBar snapshot={snapshot} />;
+}
+
+function WebPendingBar({ snapshot }: { snapshot: ControlSnapshot }): ReactNode {
   const { pending } = snapshot;
   if (pending.suppressed || pending.count === 0) return null;
   const locale = snapshot.preferences.locale;
