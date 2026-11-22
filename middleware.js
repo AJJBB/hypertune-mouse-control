@@ -3,8 +3,8 @@
 // Serves the app only to:
 //   1) the desktop shell, which sends an "x-hypertune-shell" header
 //      (see hypertune-desktop/main.js) matching SHELL_TOKEN, or
-//   2) a browser that arrived via a keyed link (…/?k=ACCESS_KEY), which sets a
-//      cookie so the rest of the session works; or already has that cookie.
+//   2) the HyperTune app's entry URL (…/?k=ACCESS_KEY&app=1), which sets a
+//      cookie so in-app reloads work; or a request already carrying it.
 // Everyone else gets a 404.
 //
 // Enforcement is env-gated: active once SHELL_TOKEN and/or ACCESS_KEY are set on
@@ -21,7 +21,12 @@ export const config = {
   matcher: "/((?!_vercel/|assets/|devices/|.*\\.[a-zA-Z0-9]+$).*)",
 };
 
-const COOKIE = "ht_access";
+// App-only access (2026-11-21): the HyperTune app loads `/?k=<ACCESS_KEY>&app=1`.
+// The key alone (the old Discord beta link) no longer gets in — the entry URL
+// must also carry the app flag, and only that sets the access cookie. The
+// cookie was renamed from "ht_access" so every browser cookie handed out by the
+// beta link stops working at once.
+const COOKIE = "ht_app";
 
 export default function middleware(request) {
   // Health check: confirms the gatekeeper is actually executing on the host.
@@ -40,16 +45,18 @@ export default function middleware(request) {
     const cookies = request.headers.get("cookie") || "";
     if (cookies.split(/;\s*/).some((c) => c === `${COOKIE}=${accessKey}`)) return;
 
-    // 2b) Keyed link (…/?k=CODE): set the cookie, then redirect to a clean URL
-    //     so the code doesn't linger in the address bar or history.
+    // 2b) The app's entry URL (…/?k=CODE&app=1): set a short-lived cookie,
+    //     then redirect to a clean URL (keeping app=1) so the code doesn't
+    //     linger in the address bar or history. The app sends the key on every
+    //     launch, so a day is plenty for in-app reloads.
     const url = new URL(request.url);
-    if (url.searchParams.get("k") === accessKey) {
+    if (url.searchParams.get("k") === accessKey && url.searchParams.get("app") === "1") {
       url.searchParams.delete("k");
       return new Response(null, {
         status: 302,
         headers: {
           location: url.pathname + (url.search || ""),
-          "set-cookie": `${COOKIE}=${accessKey}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`,
+          "set-cookie": `${COOKIE}=${accessKey}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`,
         },
       });
     }
